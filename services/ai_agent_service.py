@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 
 load_dotenv()
 
-AI_AGENT_URL = "https://f27d-151-84-208-157.ngrok-free.app/ai-agent/chat"
+AI_AGENT_URL = "https://de06-151-84-208-157.ngrok-free.app/ai-agent/chat"
 
 class ChatService:
     def __init__(self):
@@ -45,13 +45,19 @@ class ChatService:
                 # Update session timestamp
                 await update_chat_session(session_id=session_id)
                 
-                # Get SQL query from AI service
-                ai_request = {"input": message}
+                ai_request_schema = {
+                    "input_message": message,
+                    "session_id": session_id
+                    }
+                # Get response from AI service
                 starttime = datetime.now()
-                query = None
+                ai_response = None
                 
                 try:
-                    query = await self.get_ai_response(ai_request)
+                    ai_response = await self.get_ai_response(ai_request_schema)
+                    print('----------------------------------')
+                    print(ai_response)
+                    print('----------------------------------')
                     execution_time = (datetime.now() - starttime).total_seconds()
                 except Exception as e:
                     logger.error(f'Error getting AI response: {e}')
@@ -80,24 +86,40 @@ class ChatService:
                     logger.warning(f'AI service unavailable, returning error response for message: {message}')
                     return error_response
 
-                # Execute the query if we got one back
-                result = None
                 execution_time = (datetime.now() - starttime).total_seconds()
                 
-                if query:
+                if ai_response:
                     try:
-                        result = await execute_query_in_database(query, session)
-                        logger.info(f'Query returned {len(result) if result else 0} rows')
+                        # Format response using the received data directly
+                        response = {
+                            "session_id": session_id,
+                            "message": message,
+                            "response": ai_response,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        
+                        # Store response in database (as JSON string)
+                        json_response = json.dumps(ai_response)
+                        await create_chat_message(
+                            session_id=session_id,
+                            message=message,
+                            execution_time=execution_time,
+                            response=json_response,
+                            query="No query - direct response from AI service"
+                        )
+                        
+                        logger.success(f'Message processed: {message}')
+                        return response
                     except Exception as e:
-                        logger.error(f'Error executing query: {e}')
+                        logger.error(f'Error processing AI response: {e}')
                         error_response = {
                             "session_id": session_id,
                             "message": message,
                             "response": [],
                             "timestamp": datetime.now().isoformat(),
                             "error": {
-                                "type": "query_execution_error",
-                                "message": "Failed to execute database query. Please try a different question."
+                                "type": "response_processing_error",
+                                "message": "Failed to process AI response. Please try a different question."
                             }
                         }
                         
@@ -106,20 +128,20 @@ class ChatService:
                             message=message,
                             execution_time=execution_time,
                             response=json.dumps([]),
-                            query=f"Error executing query: {str(e)[:200]}"
+                            query=f"Error processing AI response: {str(e)[:200]}"
                         )
                         
                         return error_response
                 else:
-                    # No query was returned, but no error was raised
+                    # No response was returned, but no error was raised
                     error_response = {
                         "session_id": session_id,
                         "message": message,
                         "response": [],
                         "timestamp": datetime.now().isoformat(),
                         "error": {
-                            "type": "invalid_query",
-                            "message": "Unable to generate a valid query for your question. Please try rephrasing it."
+                            "type": "invalid_response",
+                            "message": "Unable to generate a valid response for your question. Please try rephrasing it."
                         }
                     }
                     
@@ -128,26 +150,11 @@ class ChatService:
                         message=message,
                         execution_time=execution_time,
                         response=json.dumps([]),
-                        query="No query generated"
+                        query="No response generated"
                     )
                     
                     return error_response
                 
-                # Format response using serializer
-                response = format_api_response(session_id, message, result)
-                
-                # Store response in database (as JSON string)
-                json_response = json.dumps(response["response"])
-                await create_chat_message(
-                    session_id=session_id,
-                    message=message,
-                    execution_time=execution_time,
-                    response=json_response,
-                    query=query
-                )
-                
-                logger.success(f'Message processed: {message}')
-                return response
         except Exception as e:
             logger.error(f'Error processing message: {e}')
             # For any other unexpected error
@@ -204,8 +211,8 @@ class ChatService:
             logger.error(f'Error getting session info: {e}')
             raise e
     
-    async def get_ai_response(self, context: Dict[str, Any]) -> Optional[str]:
-        """Get SQL query from AI service"""
+    async def get_ai_response(self, context: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        """Get response from AI service"""
         try:
             logger.info(f'AI_AGENT_URL = {AI_AGENT_URL}')
             
@@ -213,8 +220,8 @@ class ChatService:
                 logger.error('AI_AGENT_URL is not set!')
                 raise ValueError("AI service URL is not configured")
             
-            # زيادة مهلة الانتظار
-            timeout = httpx.Timeout(180.0)  # 3 minutes
+            # 3 minutes timeout
+            timeout = httpx.Timeout(180.0)
             
             logger.info('Starting AI request - this may take around 1 minute...')
             
@@ -228,22 +235,21 @@ class ChatService:
                 logger.info(f'Response status: {response.status_code}')
                 if response.status_code == 200:
                     try:
-                        
                         response_data = response.json()
-                        if isinstance(response_data, dict) and "query" in response_data:
-                            logger.success('Received query from AI!')
-                            return response_data["query"]
-                        elif isinstance(response_data, str):
-                            logger.success('Received query as string from AI!')
+                        
+                        # Handle the new schema format
+                        if isinstance(response_data, list) and len(response_data) > 0:
+                            logger.success('Received JSON response array from AI!')
                             return response_data
+                        elif isinstance(response_data, dict):
+                            logger.success('Received JSON response object from AI!')
+                            return [response_data]  # Wrap single object in array for consistency
                         else:
                             logger.error(f'Unexpected response format: {response_data}')
+                            raise ValueError("AI service returned an invalid response format")
                     except Exception as json_error:
                         logger.error(f'Error parsing JSON response: {json_error}')
-                        # التحقق من وجود استعلام SQL في الاستجابة النصية
-                        if isinstance(response.text, str) and "SELECT" in response.text.upper():
-                            logger.info('Response appears to contain SQL query, returning raw text')
-                            return response.text
+                        raise ValueError(f"Failed to parse AI service response: {str(json_error)}")
                 else:
                     logger.error(f'Error from AI service: Status {response.status_code}, Response: {response.text[:200]}')
                     raise ValueError(f"AI service returned status: {response.status_code}")
