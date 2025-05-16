@@ -38,7 +38,6 @@ class ChatService:
             logger.error(f'Error creating session: {e}')
             raise e
         
-
     async def send_message(self, session_id: str, message: str) -> Dict[str, Any]:
         """Process user message, execute SQL query, and return results"""
         try:
