@@ -39,3 +39,7 @@ async def update_chat_session(session_id: str):
     except Exception as e:
         logger.error(f'Error updating chat session: {e}')
         raise  # Raise the exception after logging
+
+# get the whole session using user id
+async def get_user_sessions(user_id):
+    return 

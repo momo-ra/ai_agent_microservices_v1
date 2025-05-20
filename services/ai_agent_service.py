@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-import os
 import httpx
 import json
 from database import AsyncSessionLocal
@@ -8,20 +7,18 @@ import uuid
 from queries.chat_session_queries import *
 from queries.chat_message_queries import *
 from typing import List, Dict, Any, Optional
-from models.models import ChatMessage
 from datetime import datetime
-from queries.ai_agent_queries import execute_query_in_database
-from serializers import format_api_response, format_history_response
+from serializers import format_history_response
 
 logger = setup_logger(__name__)
 
 load_dotenv()
 
-AI_AGENT_URL = "https://de06-151-84-208-157.ngrok-free.app/ai-agent/chat"
+AI_AGENT_URL = "https://1c62-151-84-208-157.ngrok-free.app/ai-agent/chat"
 
 class ChatService:
     def __init__(self):
-        self.http_client = httpx.AsyncClient(timeout=180.0)
+        self.http_client = httpx.AsyncClient(timeout=1000.0)
     
     async def create_session(self) -> str:
         """Create a new chat session and return the session ID"""
@@ -42,6 +39,12 @@ class ChatService:
         """Process user message, execute SQL query, and return results"""
         try:
             async with AsyncSessionLocal() as session:
+                # Check if session exists, create if it doesn't
+                session_exists = await get_chat_session(session_id)
+                if not session_exists:
+                    logger.warning(f"Session {session_id} does not exist, creating it now")
+                    await create_chat_session(session_id)
+                
                 # Update session timestamp
                 await update_chat_session(session_id=session_id)
                 
@@ -221,7 +224,7 @@ class ChatService:
                 raise ValueError("AI service URL is not configured")
             
             # 3 minutes timeout
-            timeout = httpx.Timeout(180.0)
+            timeout = httpx.Timeout(1000.0)
             
             logger.info('Starting AI request - this may take around 1 minute...')
             

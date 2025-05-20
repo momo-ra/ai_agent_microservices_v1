@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, List, Any
 from services.ai_agent_service import ChatService
-from schema import *
+from schemas.schema import *
 
 router = APIRouter(tags=["chat"])
 
