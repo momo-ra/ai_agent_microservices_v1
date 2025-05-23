@@ -12,9 +12,9 @@ from serializers import format_history_response
 
 logger = setup_logger(__name__)
 
-load_dotenv()
+load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "https://1c62-151-84-208-157.ngrok-free.app/ai-agent/chat"
+AI_AGENT_URL = "https://ecbc-151-84-208-157.ngrok-free.app/ai-agent/chat"
 
 class ChatService:
     def __init__(self):
