@@ -1,15 +1,15 @@
 from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List, TypeVar, Optional, Generic
-from datetime import datetime
 
 T = TypeVar('T')
 
 class ResponseModel(BaseModel, Generic[T]):
     """Generic response model for API responses"""
-    status: bool = Field(..., description="Status of the response")
+    status: str = Field(..., description="Status of the response, could be 'success' or 'fail'")
     data: Optional[T] = Field(None, description="Data returned in the response")
     message: Optional[str] = Field(None, description="Message accompanying the response")
+    status_code: int = Field(..., description="HTTP status code of the response")
 
 class AnswerType(str, Enum):
     """Enum for possible answer types"""
@@ -24,6 +24,12 @@ class PlotType(str, Enum):
     HISTOGRAM = "histogram_plot"
     PIE = "pie_plot"
 
+class QuestionType(str, Enum):
+    """Enum for the type of the user's question"""
+    ADVICE = "advice"
+    VIEW = "view"
+    EXPLORE = "explore"
+
 class AiDataResponseSchema(BaseModel):
     name: str = Field(..., description="Name of the data")
     data: List[dict] = Field(..., description="Data points")
@@ -34,8 +40,7 @@ class AiResponseSchema(BaseModel):
     data: Optional[List[AiDataResponseSchema]] = Field(None, description="Additional data related to the answer")
     answer_type: Optional[AnswerType] = Field(..., description="Type of the answer")
     plot_type: Optional[PlotType] = Field(None, description="Type of plot if applicable")
-
-
+    question_type: Optional[QuestionType] = Field(None, description="The type of question: advice, view, or explore")
 
 
 class DataPoint(BaseModel):
@@ -57,3 +62,4 @@ class MessageResponse(BaseModel):
 
 class MessageRequest(BaseModel):
     message: str
+    session_id: str

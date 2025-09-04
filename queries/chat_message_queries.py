@@ -1,6 +1,6 @@
 from sqlalchemy import select
-from models.models import ChatMessage
-from database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from models.plant_models import ChatMessage
 from utils.log import setup_logger
 from typing import List, Optional, Dict, Any
 import json
@@ -24,7 +24,7 @@ def message_serializer(message):
         "timestamp": message.created_at.isoformat() if hasattr(message.created_at, 'isoformat') else str(message.created_at)
     }
 
-async def create_chat_message(session_id: str, message: str, response: str, query: Optional[str] = None, execution_time: Optional[float] = None):
+async def create_chat_message(db: AsyncSession, session_id: str, user_id: int, message: str, response: str, query: Optional[str] = None, execution_time: Optional[float] = None):
     """
     Create a new chat message in the database
     
@@ -39,47 +39,45 @@ async def create_chat_message(session_id: str, message: str, response: str, quer
         Serialized message object
     """
     try:
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                chat_message = ChatMessage(
-                    session_id=session_id, 
-                    message=message, 
-                    query=query, 
-                    execution_time=execution_time, 
-                    response=response
-                )
-                session.add(chat_message)
-                await session.commit()
-                logger.success(f'Chat message created for session: {session_id}')
-                return message_serializer(chat_message)
+        async with db.begin():
+            chat_message = ChatMessage(
+                session_id=session_id,
+                user_id=user_id,
+                message=message,
+                query=query,
+                execution_time=execution_time,
+                response=response
+            )
+            db.add(chat_message)
+            await db.commit()
+            logger.success(f'Chat message created for session: {session_id}')
+            return message_serializer(chat_message)
     except Exception as e:
         logger.error(f'Error creating chat message: {e}')
         raise e
 
-async def get_session_messages(session_id: str) -> List[ChatMessage]:
+async def get_session_messages(db: AsyncSession, session_id: str) -> List[ChatMessage]:
     try:
-        async with AsyncSessionLocal() as session:
-            query = select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at)
-            result = await session.execute(query)
-            messages = result.scalars().all()
-            logger.success(f'Chat messages retrieved for session: {session_id}')
-            return messages
+        query = select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at)
+        result = await db.execute(query)
+        messages = result.scalars().all()
+        logger.success(f'Chat messages retrieved for session: {session_id}')
+        return messages
     except Exception as e:
         logger.error(f'Error getting chat messages: {e}')
         raise e
 
-async def get_last_message(session_id: str) -> Optional[ChatMessage]:
+async def get_last_message(db: AsyncSession, session_id: str) -> Optional[ChatMessage]:
 
     try:
-        async with AsyncSessionLocal() as session:
-            query = select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.desc()).limit(1)
-            result = await session.execute(query)
-            message = result.scalar_one_or_none()
-            if message:
-                logger.success(f'Last chat message retrieved for session: {session_id}')
-            else:
-                logger.info(f'No messages found for session: {session_id}')
-            return message
+        query = select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.desc()).limit(1)
+        result = await db.execute(query)
+        message = result.scalar_one_or_none()
+        if message:
+            logger.success(f'Last chat message retrieved for session: {session_id}')
+        else:
+            logger.info(f'No messages found for session: {session_id}')
+        return message
     except Exception as e:
         logger.error(f'Error getting last chat message: {e}')
         raise e

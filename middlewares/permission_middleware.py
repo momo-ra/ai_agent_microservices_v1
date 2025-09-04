@@ -175,3 +175,50 @@ async def can_access_card(db: AsyncSession, card_id: int, auth_data: Dict[str, A
     # Check for specific permission
     has_permission = await check_permission(Permissions.VIEW_ANY_USER_CARDS, db, user_id)
     return has_permission
+
+# Convenience function for checking session ownership
+async def is_session_owner(db: AsyncSession, session_id: str, user_id: int) -> bool:
+    """
+    Check if a user is the owner of a specific chat session.
+    Returns True if user owns the session, False otherwise.
+    """
+    try:
+        query = text("""
+            SELECT 1 FROM chat_sessions
+            WHERE session_id = :session_id AND user_id = :user_id
+        """)
+        result = await db.execute(query, {"session_id": session_id, "user_id": user_id})
+        is_owner = result.scalar_one_or_none() is not None
+        
+        if is_owner:
+            logger.info(f"User {user_id} is owner of session {session_id}")
+        else:
+            logger.info(f"User {user_id} is NOT owner of session {session_id}")
+        
+        return is_owner
+    except Exception as e:
+        logger.error(f"Error checking session ownership for user {user_id}, session {session_id}: {e}")
+        return False
+
+# Helper for authorization logic for chat sessions
+async def can_access_session(db: AsyncSession, session_id: str, auth_data: Dict[str, Any]) -> bool:
+    """
+    Check if the authenticated user can access a specific chat session.
+    Returns True if access is allowed, False otherwise.
+    
+    Access rules:
+    1. User is the session owner
+    2. User has admin role
+    """
+    user_id = get_user_id(auth_data)
+    
+    # Admin can access any session
+    if is_admin(auth_data):
+        return True
+        
+    # Check if user is session owner
+    is_owner = await is_session_owner(db, session_id, user_id)
+    if is_owner:
+        return True
+    
+    return False

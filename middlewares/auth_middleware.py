@@ -14,9 +14,9 @@ dotenv.load_dotenv('.env', override=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 
+# Do not crash the app at import time; log and handle at request time instead
 if not JWT_SECRET or not JWT_ALGORITHM:
     logger.error("JWT_SECRET or JWT_ALGORITHM environment variables not set")
-    raise ValueError("JWT configuration is missing. Please set JWT_SECRET and JWT_ALGORITHM environment variables.")
 
 security = HTTPBearer()
 
@@ -26,6 +26,10 @@ def verify_token(token: str) -> Dict[str, Any]:
     Raises HTTPException if token is invalid.
     """
     try:
+        # Guard against missing configuration at runtime
+        if not JWT_SECRET or not JWT_ALGORITHM:
+            logger.error("JWT configuration is missing at runtime")
+            raise HTTPException(status_code=500, detail="Authentication is not configured on the server")
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         
         # Validate payload structure
@@ -62,35 +66,6 @@ async def verify_ws_token(token: str) -> Dict[str, Any]:
     Raises exceptions for invalid tokens - these should be caught by the caller.
     """
     return verify_token(token)
-
-async def get_token_from_ws_query(websocket: WebSocket) -> Optional[str]:
-    """
-    Extract token from WebSocket query parameters.
-    Returns None if no token is found.
-    """
-    return websocket.query_params.get("token")
-
-async def authenticate_ws(websocket: WebSocket) -> Optional[Dict[str, Any]]:
-    """
-    Authenticate a WebSocket connection.
-    Returns the JWT payload if authentication succeeds, None otherwise.
-    Automatically closes the WebSocket connection if authentication fails.
-    """
-    token = await get_token_from_ws_query(websocket)
-    
-    if not token:
-        logger.warning("WebSocket connection attempt without token")
-        await websocket.close(code=1008)  # Policy violation
-        return None
-        
-    try:
-        payload = await verify_ws_token(token)
-        logger.info(f"WebSocket authenticated for user: {payload.get('user_id')}")
-        return payload
-    except Exception as e:
-        logger.warning(f"WebSocket authentication failed: {str(e)}")
-        await websocket.close(code=1008)  # Policy violation
-        return None
 
 # Helper function to get user_id from authenticated user payload
 def get_user_id(auth_data: Dict[str, Any]) -> int:

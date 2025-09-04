@@ -64,10 +64,13 @@ def format_history_response(chat_message) -> Dict[str, Any]:
             try:
                 parsed_response = json.loads(chat_message.response)
                 
-                # Check if response is already in the new format (with tag_id and data)
+                # Check if response is already in expected structured formats
                 if isinstance(parsed_response, list) and len(parsed_response) > 0 and isinstance(parsed_response[0], dict):
                     if "tag_id" in parsed_response[0] and "data" in parsed_response[0]:
-                        # Already in correct format
+                        # Time-series grouped by tag format: keep as-is
+                        response_data = parsed_response
+                    elif "answer" in parsed_response[0]:
+                        # AI chat response objects (AiResponseSchema-like): keep as-is
                         response_data = parsed_response
                     else:
                         # Convert old format (flat) to new format (grouped by tag)

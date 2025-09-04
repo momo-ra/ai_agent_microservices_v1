@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from services.query_service import QueryService
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import get_plant_db_with_context
 
 query_router = APIRouter(prefix="/query", tags=["query"])
 
@@ -53,7 +55,8 @@ async def transform_query(
 @query_router.post("/execute", response_model=QueryExecuteResponse)
 async def execute_query(
     request: QueryExecuteRequest,
-    query_service: QueryService = Depends(get_query_service)
+    query_service: QueryService = Depends(get_query_service),
+    db: AsyncSession = Depends(get_plant_db_with_context)
 ):
     """
     Transform and execute a query, returning standardized results
@@ -64,7 +67,8 @@ async def execute_query(
         
         # Then execute it
         results, row_count, execution_time = await query_service.execute_query(
-            transformed_query, 
+            db,
+            transformed_query,
             request.parameters
         )
         

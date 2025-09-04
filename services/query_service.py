@@ -3,8 +3,8 @@ import re
 import time
 from typing import Dict, Any, List, Tuple, Optional
 from utils.log import setup_logger
-from database import AsyncSessionLocal
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = setup_logger(__name__)
 
@@ -76,7 +76,7 @@ class QueryService:
         logger.info("Query transformation complete")
         return transformed_query
     
-    async def execute_query(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], int, float]:
+    async def execute_query(self, db: AsyncSession, query: str, parameters: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], int, float]:
         """
         Execute a SQL query and return results
         
@@ -91,32 +91,31 @@ class QueryService:
         
         start_time = time.time()
         
-        async with AsyncSessionLocal() as session:
-            try:
-                # Execute the query
-                result = await session.execute(text(query), parameters or {})
-                
-                # Fetch all rows
-                rows = result.fetchall()
-                row_count = len(rows)
-                
-                # Convert to list of dicts for easier JSON serialization
-                if rows and hasattr(result, 'keys'):
-                    column_names = result.keys()
-                    results = [dict(zip(column_names, row)) for row in rows]
-                else:
-                    # Fallback if column names can't be determined
-                    results = [{"column_" + str(i): value for i, value in enumerate(row)} for row in rows]
-                
-                execution_time = (time.time() - start_time) * 1000  # Convert to ms
-                
-                logger.info(f"Query executed successfully. {row_count} rows returned in {execution_time:.2f}ms")
-                
-                return results, row_count, execution_time
-                
-            except Exception as e:
-                logger.error(f"Error executing query: {e}")
-                raise
+        try:
+            # Execute the query using provided plant-scoped session
+            result = await db.execute(text(query), parameters or {})
+            
+            # Fetch all rows
+            rows = result.fetchall()
+            row_count = len(rows)
+            
+            # Convert to list of dicts for easier JSON serialization
+            if rows and hasattr(result, 'keys'):
+                column_names = result.keys()
+                results = [dict(zip(column_names, row)) for row in rows]
+            else:
+                # Fallback if column names can't be determined
+                results = [{"column_" + str(i): value for i, value in enumerate(row)} for row in rows]
+            
+            execution_time = (time.time() - start_time) * 1000  # Convert to ms
+            
+            logger.info(f"Query executed successfully. {row_count} rows returned in {execution_time:.2f}ms")
+            
+            return results, row_count, execution_time
+            
+        except Exception as e:
+            logger.error(f"Error executing query: {e}")
+            raise
     
     def analyze_query(self, query: str) -> Dict[str, Any]:
         """

@@ -1,14 +1,15 @@
 from dotenv import load_dotenv
 import httpx
 import json
-from database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.log import setup_logger
 import uuid
-from queries.chat_session_queries import *
-from queries.chat_message_queries import *
+from queries.chat_session_queries import create_chat_session, get_chat_session, update_chat_session
+from queries.chat_message_queries import create_chat_message, get_session_messages
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from serializers import format_history_response
+from middlewares.permission_middleware import can_access_session
 
 logger = setup_logger(__name__)
 
@@ -20,11 +21,11 @@ class ChatService:
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=1000.0)
     
-    async def create_session(self) -> str:
+    async def create_session(self, db: AsyncSession, user_id: int) -> str:
         """Create a new chat session and return the session ID"""
         try:
             session_id = str(uuid.uuid4())
-            created_session = await create_chat_session(session_id)
+            created_session = await create_chat_session(db, session_id, user_id)
             if created_session:
                 logger.success(f'Session created: {session_id}')
                 return session_id
@@ -35,132 +36,117 @@ class ChatService:
             logger.error(f'Error creating session: {e}')
             raise e
         
-    async def send_message(self, session_id: str, message: str) -> Dict[str, Any]:
+    async def send_message(self, db: AsyncSession, session_id: str, message: str, auth_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process user message, execute SQL query, and return results"""
         try:
-            async with AsyncSessionLocal() as session:
-                # Check if session exists, create if it doesn't
-                session_exists = await get_chat_session(session_id)
-                if not session_exists:
-                    logger.warning(f"Session {session_id} does not exist, creating it now")
-                    await create_chat_session(session_id)
-                
-                # Update session timestamp
-                await update_chat_session(session_id=session_id)
-                
-                ai_request_schema = {
-                    "input_message": message,
-                    "session_id": session_id
-                    }
-                # Get response from AI service
-                starttime = datetime.now()
-                ai_response = None
-                
-                try:
-                    ai_response = await self.get_ai_response(ai_request_schema)
-                    print('----------------------------------')
-                    print(ai_response)
-                    print('----------------------------------')
-                    execution_time = (datetime.now() - starttime).total_seconds()
-                except Exception as e:
-                    logger.error(f'Error getting AI response: {e}')
-                    
-                    # Create a friendly error response for the user
-                    error_response = {
-                        "session_id": session_id,
-                        "message": message,
-                        "response": [],
-                        "timestamp": datetime.now().isoformat(),
-                        "error": {
-                            "type": "ai_service_unavailable",
-                            "message": "The AI service is temporarily unavailable. Please try again later."
-                        }
-                    }
-                    
-                    # Still store this in the database
-                    await create_chat_message(
-                        session_id=session_id,
-                        message=message,
-                        execution_time=0,
-                        response=json.dumps([]),
-                        query="Error: AI service unavailable"
-                    )
-                    
-                    logger.warning(f'AI service unavailable, returning error response for message: {message}')
-                    return error_response
-
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            # Check if session exists, create if it doesn't
+            session_exists = await get_chat_session(db, session_id)
+            if not session_exists:
+                logger.warning(f"Session {session_id} does not exist, creating it now")
+                await create_chat_session(db, session_id, auth_data.get("user_id"))
+            # Update session timestamp
+            await update_chat_session(db, session_id=session_id)
+            ai_request_schema = {
+                "input_message": message,
+                "session_id": session_id
+            }
+            # Get response from AI service
+            starttime = datetime.now()
+            ai_response = None
+            try:
+                ai_response = await self.get_ai_response(ai_request_schema)
                 execution_time = (datetime.now() - starttime).total_seconds()
-                
-                if ai_response:
-                    try:
-                        # Format response using the received data directly
-                        response = {
-                            "session_id": session_id,
-                            "message": message,
-                            "response": ai_response,
-                            "timestamp": datetime.now().isoformat()
-                        }
-                        
-                        # Store response in database (as JSON string)
-                        json_response = json.dumps(ai_response)
-                        await create_chat_message(
-                            session_id=session_id,
-                            message=message,
-                            execution_time=execution_time,
-                            response=json_response,
-                            query="No query - direct response from AI service"
-                        )
-                        
-                        logger.success(f'Message processed: {message}')
-                        return response
-                    except Exception as e:
-                        logger.error(f'Error processing AI response: {e}')
-                        error_response = {
-                            "session_id": session_id,
-                            "message": message,
-                            "response": [],
-                            "timestamp": datetime.now().isoformat(),
-                            "error": {
-                                "type": "response_processing_error",
-                                "message": "Failed to process AI response. Please try a different question."
-                            }
-                        }
-                        
-                        await create_chat_message(
-                            session_id=session_id,
-                            message=message,
-                            execution_time=execution_time,
-                            response=json.dumps([]),
-                            query=f"Error processing AI response: {str(e)[:200]}"
-                        )
-                        
-                        return error_response
-                else:
-                    # No response was returned, but no error was raised
+            except Exception as e:
+                logger.error(f'Error getting AI response: {e}')
+                error_response = {
+                    "session_id": session_id,
+                    "message": message,
+                    "response": [],
+                    "timestamp": datetime.now().isoformat(),
+                    "error": {
+                        "type": "ai_service_unavailable",
+                        "message": "The AI service is temporarily unavailable. Please try again later."
+                    }
+                }
+                await create_chat_message(
+                    db=db,
+                    session_id=session_id,
+                    user_id=auth_data.get("user_id"),
+                    message=message,
+                    execution_time=0,
+                    response=json.dumps([]),
+                    query="Error: AI service unavailable"
+                )
+                logger.warning(f'AI service unavailable, returning error response for message: {message}')
+                return error_response
+            execution_time = (datetime.now() - starttime).total_seconds()
+            if ai_response:
+                try:
+                    response = {
+                        "session_id": session_id,
+                        "message": message,
+                        "response": ai_response,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    json_response = json.dumps(ai_response)
+                    await create_chat_message(
+                        db=db,
+                        session_id=session_id,
+                        user_id=auth_data.get("user_id"),
+                        message=message,
+                        execution_time=execution_time,
+                        response=json_response,
+                        query="No query - direct response from AI service"
+                    )
+                    logger.success(f'Message processed: {message}')
+                    return response
+                except Exception as e:
+                    logger.error(f'Error processing AI response: {e}')
                     error_response = {
                         "session_id": session_id,
                         "message": message,
                         "response": [],
                         "timestamp": datetime.now().isoformat(),
                         "error": {
-                            "type": "invalid_response",
-                            "message": "Unable to generate a valid response for your question. Please try rephrasing it."
+                            "type": "response_processing_error",
+                            "message": "Failed to process AI response. Please try a different question."
                         }
                     }
-                    
                     await create_chat_message(
+                        db=db,
                         session_id=session_id,
+                        user_id=auth_data.get("user_id"),
                         message=message,
                         execution_time=execution_time,
                         response=json.dumps([]),
-                        query="No response generated"
+                        query=f"Error processing AI response: {str(e)[:200]}"
                     )
-                    
                     return error_response
-                
+            else:
+                error_response = {
+                    "session_id": session_id,
+                    "message": message,
+                    "response": [],
+                    "timestamp": datetime.now().isoformat(),
+                    "error": {
+                        "type": "invalid_response",
+                        "message": "Unable to generate a valid response for your question. Please try rephrasing it."
+                    }
+                }
+                await create_chat_message(
+                    db=db,
+                    session_id=session_id,
+                    user_id=auth_data.get("user_id"),
+                    message=message,
+                    execution_time=execution_time,
+                    response=json.dumps([]),
+                    query="No response generated"
+                )
+                return error_response
         except Exception as e:
             logger.error(f'Error processing message: {e}')
-            # For any other unexpected error
             error_response = {
                 "session_id": session_id,
                 "message": message,
@@ -171,10 +157,11 @@ class ChatService:
                     "message": "An unexpected error occurred. Please try again later."
                 }
             }
-            
             try:
                 await create_chat_message(
+                    db=db,
                     session_id=session_id,
+                    user_id=auth_data.get("user_id"),
                     message=message,
                     execution_time=0,
                     response=json.dumps([]),
@@ -182,33 +169,33 @@ class ChatService:
                 )
             except Exception as db_error:
                 logger.error(f"Failed to store error in database: {db_error}")
-                
             return error_response
     
-    async def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
+    async def get_session_history(self, db: AsyncSession, session_id: str, auth_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Get the chat history for a session"""
         try:
-            messages = await get_session_messages(session_id)
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            messages = await get_session_messages(db, session_id)
             logger.info(f"Retrieved {len(messages)} messages for session {session_id}")
-            
-            # Use serializer to format each message
             history = [format_history_response(msg) for msg in messages]
             return history
         except Exception as e:
             logger.error(f'Error getting session history: {e}')
             raise e
     
-    async def get_session_info(self, session_id: str) -> Dict[str, Any]:
+    async def get_session_info(self, db: AsyncSession, session_id: str, auth_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get information about a chat session"""
         try:
-            session = await get_chat_session(session_id)
-            if not session:
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            session_obj = await get_chat_session(db, session_id)
+            if not session_obj:
                 raise ValueError(f"Session with id {session_id} not found")
-                
             return {
-                "session_id": session.session_id,
-                "created_at": session.created_at.isoformat() if hasattr(session.created_at, 'isoformat') else str(session.created_at),
-                "updated_at": session.updated_at.isoformat() if session.updated_at and hasattr(session.updated_at, 'isoformat') else None
+                "session_id": session_obj.session_id,
+                "created_at": session_obj.created_at.isoformat() if hasattr(session_obj.created_at, 'isoformat') else str(session_obj.created_at),
+                "updated_at": session_obj.updated_at.isoformat() if hasattr(session_obj, 'updated_at') and session_obj.updated_at and hasattr(session_obj.updated_at, 'isoformat') else None
             }
         except Exception as e:
             logger.error(f'Error getting session info: {e}')

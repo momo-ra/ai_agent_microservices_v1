@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.endpoints import router
-from api.query_endpoint import query_router
-from database import async_engin, Base
-from models.models import ChatSession, ChatMessage  # استيراد النماذج هنا مهم!
+from routers.endpoints import router
+from routers.query_endpoint import query_router
+from database import init_db
 from utils.log import setup_logger
+from utils.response import success_response
 
 logger = setup_logger(__name__)
 
@@ -25,16 +25,17 @@ app.include_router(query_router, prefix="/api/v1")
 @app.on_event("startup")
 async def startup_event():
     try:
-        async with async_engin.begin() as conn:  # استخدم begin() بدلاً من connect()
-            await conn.run_sync(Base.metadata.create_all)
-        logger.success('Database tables created successfully')
+        logger.info("Starting up the application...")
+        # Initialize central and plant databases
+        await init_db()
+        logger.success("Databases initialized")
     except Exception as e:
-        logger.error(f'Error creating database tables: {e}')
+        logger.error(f"Error creating database tables: {e}")
         raise e
     
 @app.get("/")
 async def root():
-    return {"message": "Welcome in AI-Agent Microservices"}
+    return success_response(message="Welcome in AI-Agent Microservices")
 
 if __name__ == "__main__":
     import uvicorn
