@@ -4,22 +4,31 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.log import setup_logger
 import uuid
-from queries.chat_session_queries import create_chat_session, get_chat_session, update_chat_session
-from queries.chat_message_queries import create_chat_message, get_session_messages
+from queries.chat_session_queries import (
+    create_chat_session, get_chat_session, update_chat_session,
+    get_user_sessions, get_starred_sessions, get_recent_sessions,
+    search_sessions, update_session_star, update_session_name, delete_session
+)
+from queries.chat_message_queries import (
+    create_chat_message, get_session_messages, update_chat_message, delete_chat_message
+)
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from serializers import format_history_response
 from middlewares.permission_middleware import can_access_session
+from schemas.schema import AiResponseSchema, AnswerType, PlotType, QuestionType
+from services.artifact_service import ArtifactService
 
 logger = setup_logger(__name__)
 
 load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "https://ecbc-151-84-208-157.ngrok-free.app/ai-agent/chat"
+AI_AGENT_URL = "https://653af10492df.ngrok-free.app/ai-agent/chat"
 
 class ChatService:
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=1000.0)
+        self.artifact_service = ArtifactService()
     
     async def create_session(self, db: AsyncSession, user_id: int) -> str:
         """Create a new chat session and return the session ID"""
@@ -36,7 +45,7 @@ class ChatService:
             logger.error(f'Error creating session: {e}')
             raise e
         
-    async def send_message(self, db: AsyncSession, session_id: str, message: str, auth_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def send_message(self, db: AsyncSession, session_id: str, message: str, auth_data: Dict[str, Any], plant_context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Process user message, execute SQL query, and return results"""
         try:
             if not await can_access_session(db, session_id, auth_data):
@@ -50,13 +59,14 @@ class ChatService:
             await update_chat_session(db, session_id=session_id)
             ai_request_schema = {
                 "input_message": message,
-                "session_id": session_id
+                "session_id": session_id,
+                "plant_id": plant_context.get("plant_id") if plant_context else None
             }
             # Get response from AI service
             starttime = datetime.now()
             ai_response = None
             try:
-                ai_response = await self.get_ai_response(ai_request_schema)
+                ai_response = await self.get_ai_response(ai_request_schema, plant_id=plant_context.get("plant_id") if plant_context else None)
                 execution_time = (datetime.now() - starttime).total_seconds()
             except Exception as e:
                 logger.error(f'Error getting AI response: {e}')
@@ -64,6 +74,7 @@ class ChatService:
                     "session_id": session_id,
                     "message": message,
                     "response": [],
+                    "artifacts": [],  # Include empty artifacts array for consistency
                     "timestamp": datetime.now().isoformat(),
                     "error": {
                         "type": "ai_service_unavailable",
@@ -91,7 +102,8 @@ class ChatService:
                         "timestamp": datetime.now().isoformat()
                     }
                     json_response = json.dumps(ai_response)
-                    await create_chat_message(
+                    # Create chat message record
+                    chat_message = await create_chat_message(
                         db=db,
                         session_id=session_id,
                         user_id=auth_data.get("user_id"),
@@ -100,6 +112,28 @@ class ChatService:
                         response=json_response,
                         query="No query - direct response from AI service"
                     )
+                    
+                    # Try to create artifacts from AI response and collect them
+                    created_artifacts = []
+                    try:
+                        for ai_item in ai_response:
+                            artifact = await self.artifact_service.create_artifact_from_ai_response(
+                                db=db,
+                                session_id=session_id,
+                                user_id=auth_data.get("user_id"),
+                                ai_response=ai_item,
+                                message_id=chat_message.get('id') if chat_message and isinstance(chat_message, dict) else None
+                            )
+                            if artifact:
+                                created_artifacts.append(artifact)
+                                logger.info(f"Created artifact: {artifact.get('title', 'Untitled')}")
+                    except Exception as artifact_error:
+                        logger.warning(f"Failed to create artifacts: {artifact_error}")
+                        # Don't fail the main response if artifact creation fails
+                    
+                    # Include artifacts in the response for frontend consumption
+                    response["artifacts"] = created_artifacts
+                    
                     logger.success(f'Message processed: {message}')
                     return response
                 except Exception as e:
@@ -108,6 +142,7 @@ class ChatService:
                         "session_id": session_id,
                         "message": message,
                         "response": [],
+                        "artifacts": [],  # Include empty artifacts array for consistency
                         "timestamp": datetime.now().isoformat(),
                         "error": {
                             "type": "response_processing_error",
@@ -129,6 +164,7 @@ class ChatService:
                     "session_id": session_id,
                     "message": message,
                     "response": [],
+                    "artifacts": [],  # Include empty artifacts array for consistency
                     "timestamp": datetime.now().isoformat(),
                     "error": {
                         "type": "invalid_response",
@@ -151,6 +187,7 @@ class ChatService:
                 "session_id": session_id,
                 "message": message,
                 "response": [],
+                "artifacts": [],  # Include empty artifacts array for consistency
                 "timestamp": datetime.now().isoformat(),
                 "error": {
                     "type": "internal_error",
@@ -201,7 +238,134 @@ class ChatService:
             logger.error(f'Error getting session info: {e}')
             raise e
     
-    async def get_ai_response(self, context: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    async def get_user_sessions(self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get all chat sessions for a user"""
+        try:
+            sessions = await get_user_sessions(db, user_id, skip, limit)
+            return [self._format_session_response(session) for session in sessions]
+        except Exception as e:
+            logger.error(f'Error getting user sessions: {e}')
+            raise e
+    
+    async def get_starred_sessions(self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get starred chat sessions for a user"""
+        try:
+            sessions = await get_starred_sessions(db, user_id, skip, limit)
+            return [self._format_session_response(session) for session in sessions]
+        except Exception as e:
+            logger.error(f'Error getting starred sessions: {e}')
+            raise e
+    
+    async def get_recent_sessions(self, db: AsyncSession, user_id: int, days: int = 7, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent chat sessions for a user"""
+        try:
+            sessions = await get_recent_sessions(db, user_id, days, skip, limit)
+            return [self._format_session_response(session) for session in sessions]
+        except Exception as e:
+            logger.error(f'Error getting recent sessions: {e}')
+            raise e
+    
+    async def search_sessions(self, db: AsyncSession, user_id: int, search_term: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Search chat sessions for a user"""
+        try:
+            sessions = await search_sessions(db, user_id, search_term, skip, limit)
+            return [self._format_session_response(session) for session in sessions]
+        except Exception as e:
+            logger.error(f'Error searching sessions: {e}')
+            raise e
+    
+    async def update_session_star(self, db: AsyncSession, session_id: str, is_starred: bool, auth_data: Dict[str, Any]) -> bool:
+        """Update starred status of a chat session"""
+        try:
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            await update_session_star(db, session_id, is_starred)
+            return True
+        except Exception as e:
+            logger.error(f'Error updating session star status: {e}')
+            raise e
+    
+    async def update_session_name(self, db: AsyncSession, session_id: str, chat_name: str, auth_data: Dict[str, Any]) -> bool:
+        """Update name of a chat session"""
+        try:
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            await update_session_name(db, session_id, chat_name)
+            return True
+        except Exception as e:
+            logger.error(f'Error updating session name: {e}')
+            raise e
+    
+    async def delete_session(self, db: AsyncSession, session_id: str, auth_data: Dict[str, Any]) -> bool:
+        """Delete a chat session"""
+        try:
+            if not await can_access_session(db, session_id, auth_data):
+                raise ValueError("Access denied: You do not have permission to access this session.")
+            await delete_session(db, session_id)
+            return True
+        except Exception as e:
+            logger.error(f'Error deleting session: {e}')
+            raise e
+    
+    async def update_message(self, db: AsyncSession, message_id: int, message: str, auth_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update a chat message"""
+        try:
+            user_id = auth_data.get("user_id")
+            updated_message = await update_chat_message(db, message_id, message, user_id)
+            return updated_message
+        except Exception as e:
+            logger.error(f'Error updating message: {e}')
+            raise e
+    
+    async def delete_message(self, db: AsyncSession, message_id: int, auth_data: Dict[str, Any]) -> bool:
+        """Delete a chat message"""
+        try:
+            user_id = auth_data.get("user_id")
+            return await delete_chat_message(db, message_id, user_id)
+        except Exception as e:
+            logger.error(f'Error deleting message: {e}')
+            raise e
+    
+    def _format_session_response(self, session) -> Dict[str, Any]:
+        """Format session response with additional metadata"""
+        try:
+            # Get last message info if available
+            last_message = None
+            last_message_time = None
+            message_count = 0
+            
+            # This would need to be optimized with a proper join query in production
+            # For now, we'll set basic info
+            return {
+                "id": session.id,
+                "session_id": session.session_id,
+                "user_id": session.user_id,
+                "user_name": session.user_name,
+                "chat_name": session.chat_name,
+                "is_starred": session.is_starred,
+                "created_at": session.created_at.isoformat() if hasattr(session.created_at, 'isoformat') else str(session.created_at),
+                "updated_at": session.updated_at.isoformat() if hasattr(session.updated_at, 'isoformat') else str(session.updated_at),
+                "message_count": message_count,
+                "last_message": last_message,
+                "last_message_time": last_message_time
+            }
+        except Exception as e:
+            logger.error(f'Error formatting session response: {e}')
+            return {
+                "id": session.id,
+                "session_id": session.session_id,
+                "user_id": session.user_id,
+                "user_name": session.user_name,
+                "chat_name": session.chat_name,
+                "is_starred": session.is_starred,
+                "created_at": session.created_at.isoformat() if hasattr(session.created_at, 'isoformat') else str(session.created_at),
+                "updated_at": session.updated_at.isoformat() if hasattr(session.updated_at, 'isoformat') else str(session.updated_at),
+                "message_count": 0,
+                "last_message": None,
+                "last_message_time": None
+            }
+
+    async def get_ai_response(self, context: Dict[str, Any], plant_id: str = None) -> Optional[List[Dict[str, Any]]]:
         """Get response from AI service"""
         try:
             logger.info(f'AI_AGENT_URL = {AI_AGENT_URL}')
@@ -215,11 +379,19 @@ class ChatService:
             
             logger.info('Starting AI request - this may take around 1 minute...')
             
+            # Prepare headers
+            headers = {"Content-Type": "application/json"}
+            if plant_id:
+                headers["Plant-Id"] = plant_id
+                logger.info(f'Sending Plant-Id header: {plant_id}')
+            else:
+                logger.warning('No plant_id provided for AI request')
+            
             async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
                 response = await client.post(
                     AI_AGENT_URL,
                     json=context,
-                    headers={"Content-Type": "application/json"}
+                    headers=headers
                 )
                 
                 logger.info(f'Response status: {response.status_code}')
@@ -230,10 +402,28 @@ class ChatService:
                         # Handle the new schema format
                         if isinstance(response_data, list) and len(response_data) > 0:
                             logger.success('Received JSON response array from AI!')
-                            return response_data
+                            # Validate each response against the schema
+                            validated_responses = []
+                            for item in response_data:
+                                try:
+                                    # Try to parse as AiResponseSchema
+                                    validated_item = AiResponseSchema(**item)
+                                    validated_responses.append(validated_item.dict())
+                                except Exception as validation_error:
+                                    logger.warning(f"Response item validation failed: {validation_error}")
+                                    # Fallback to original item if validation fails
+                                    validated_responses.append(item)
+                            return validated_responses
                         elif isinstance(response_data, dict):
                             logger.success('Received JSON response object from AI!')
-                            return [response_data]  # Wrap single object in array for consistency
+                            try:
+                                # Try to parse as AiResponseSchema
+                                validated_item = AiResponseSchema(**response_data)
+                                return [validated_item.dict()]
+                            except Exception as validation_error:
+                                logger.warning(f"Response validation failed: {validation_error}")
+                                # Fallback to original response if validation fails
+                                return [response_data]
                         else:
                             logger.error(f'Unexpected response format: {response_data}')
                             raise ValueError("AI service returned an invalid response format")

@@ -38,13 +38,88 @@ async def update_chat_session(db: AsyncSession, session_id: str):
         raise  # Raise the exception after logging
 
 # get the whole session using user id
-async def get_user_sessions(db: AsyncSession, user_id: int):
+async def get_user_sessions(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100):
     try:
-        query = select(ChatSession).where(ChatSession.user_id == user_id)
+        query = select(ChatSession).where(ChatSession.user_id == user_id).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit)
         result = await db.execute(query)
         sessions = result.scalars().all()
         logger.info(f'Retrieved {len(sessions)} sessions for user: {user_id}')
         return sessions
     except Exception as e:
         logger.error(f'Error getting user sessions: {e}')
-        raise  # Raise the exception after logging 
+        raise  # Raise the exception after logging
+
+async def get_starred_sessions(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100):
+    try:
+        query = select(ChatSession).where(
+            ChatSession.user_id == user_id,
+            ChatSession.is_starred == True
+        ).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit)
+        result = await db.execute(query)
+        sessions = result.scalars().all()
+        logger.info(f'Retrieved {len(sessions)} starred sessions for user: {user_id}')
+        return sessions
+    except Exception as e:
+        logger.error(f'Error getting starred sessions: {e}')
+        raise
+
+async def get_recent_sessions(db: AsyncSession, user_id: int, days: int = 7, skip: int = 0, limit: int = 100):
+    try:
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        query = select(ChatSession).where(
+            ChatSession.user_id == user_id,
+            ChatSession.updated_at >= cutoff_date
+        ).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit)
+        result = await db.execute(query)
+        sessions = result.scalars().all()
+        logger.info(f'Retrieved {len(sessions)} recent sessions for user: {user_id}')
+        return sessions
+    except Exception as e:
+        logger.error(f'Error getting recent sessions: {e}')
+        raise
+
+async def search_sessions(db: AsyncSession, user_id: int, search_term: str, skip: int = 0, limit: int = 100):
+    try:
+        query = select(ChatSession).where(
+            ChatSession.user_id == user_id,
+            ChatSession.chat_name.ilike(f'%{search_term}%')
+        ).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit)
+        result = await db.execute(query)
+        sessions = result.scalars().all()
+        logger.info(f'Found {len(sessions)} sessions matching search term: {search_term}')
+        return sessions
+    except Exception as e:
+        logger.error(f'Error searching sessions: {e}')
+        raise
+
+async def update_session_star(db: AsyncSession, session_id: str, is_starred: bool):
+    try:
+        query = update(ChatSession).where(ChatSession.session_id == session_id).values(is_starred=is_starred)
+        await db.execute(query)
+        await db.commit()
+        logger.info(f'Session {session_id} starred status updated to: {is_starred}')
+    except Exception as e:
+        logger.error(f'Error updating session star status: {e}')
+        raise
+
+async def update_session_name(db: AsyncSession, session_id: str, chat_name: str):
+    try:
+        query = update(ChatSession).where(ChatSession.session_id == session_id).values(chat_name=chat_name)
+        await db.execute(query)
+        await db.commit()
+        logger.info(f'Session {session_id} name updated to: {chat_name}')
+    except Exception as e:
+        logger.error(f'Error updating session name: {e}')
+        raise
+
+async def delete_session(db: AsyncSession, session_id: str):
+    try:
+        from sqlalchemy import delete
+        query = delete(ChatSession).where(ChatSession.session_id == session_id)
+        await db.execute(query)
+        await db.commit()
+        logger.info(f'Session {session_id} deleted successfully')
+    except Exception as e:
+        logger.error(f'Error deleting session: {e}')
+        raise 

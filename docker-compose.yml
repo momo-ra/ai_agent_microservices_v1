@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  auth_microservices:
+    build:
+      context: ./auth_microservices
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./auth_microservices/.env
+    volumes:
+      # For development hot-reload (comment out for production)
+      - ./auth_microservices:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  upload_data_microservices:
+    build:
+      context: ./upload_data_microservices
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./upload_data_microservices/.env
+    volumes:
+      # For development hot-reload
+      - ./upload_data_microservices:/app
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  knowledge_graph_microservices:
+    build:
+      context: ./knowledge_graph_microservices
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"  # Assuming port 8005 based on the last Dockerfile
+    env_file:
+      - ./knowledge_graph_microservices/.env
+    volumes:
+      - ./knowledge_graph_microservices:/app
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  ai_agent_microservices:
+    build:
+      context: ./ai_agent_microservices
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./ai_agent_microservices/.env
+    volumes:
+      - ./ai_agent_microservices:/app
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  ingestion_data_microservices:
+    build:
+      context: .
+      dockerfile: ./ingestion_data_microservices/Dockerfile
+    ports:
+      - "8007:8007"
+    env_file:
+      - ./ingestion_data_microservices/.env
+    volumes:
+      - ./ingestion_data_microservices:/app
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  data_query_microservices:
+    build:
+      context: ./data_query_microservices
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./data_query_microservices/.env
+    volumes:
+      - ./data_query_microservices:/app
+    depends_on:
+      - redis
+      - kafka
+    restart: unless-stopped
+    networks:
+      - microservices_network
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - microservices_network
+    volumes:
+      - redis_data:/data
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+    networks:
+      - microservices_network
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+    networks:
+      - microservices_network
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+networks:
+  microservices_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:

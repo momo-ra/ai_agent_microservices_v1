@@ -22,6 +22,9 @@ class Settings:
     # JWT settings
     JWT_SECRET: str = os.getenv("JWT_SECRET", "your_secret_key")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    
+    # Jobs service settings
+    JOBS_SERVICE_URL: str = os.getenv("JOBS_SERVICE_URL", "http://localhost:8001")
 
     @property
     def CENTRAL_DATABASE_URL(self):

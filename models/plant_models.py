@@ -111,7 +111,7 @@ class Workspace(PlantBase, BaseModel):
     # Relationships
     members = relationship("WorkspaceMembers", back_populates="workspace", cascade="all, delete-orphan")
     cards = relationship("CardData", back_populates="workspace", cascade="all, delete-orphan")
-    tag_subscriptions = relationship("WorkspaceTagSubscription", back_populates="workspace", cascade="all, delete-orphan")
+    # tag_subscriptions = relationship("WorkspaceTagSubscription", back_populates="workspace", cascade="all, delete-orphan")
     alerts = relationship("Alerts", back_populates="workspace", cascade="all, delete-orphan")
     alerting_formulas = relationship("AlertingFormula", back_populates="workspace", cascade="all, delete-orphan")
     polling_tasks = relationship("PollingTasks", back_populates="workspace", cascade="all, delete-orphan")
@@ -178,8 +178,8 @@ class Tag(PlantBase, BaseModel):
     polling_tasks = relationship("PollingTasks", back_populates="tag", cascade="all, delete-orphan")
     alerting_formulas_tag1 = relationship("AlertingFormula", foreign_keys="AlertingFormula.tag_1", back_populates="tag_1_ref")
     alerting_formulas_tag2 = relationship("AlertingFormula", foreign_keys="AlertingFormula.tag_2", back_populates="tag_2_ref")
-    workspace_subscriptions = relationship("WorkspaceTagSubscription", back_populates="tag", cascade="all, delete-orphan")
-    data_source = relationship("DataSource", back_populates="tags")
+    # workspace_subscriptions = relationship("WorkspaceTagSubscription", back_populates="tag", cascade="all, delete-orphan")
+    # data_source = relationship("DataSource", back_populates="tags")
     
     def __repr__(self):
         return f"<Tag(id={self.id}, name={self.name}, plant_id={self.plant_id})>"
@@ -232,14 +232,19 @@ class ChatSession(PlantBase, BaseModel):
     session_id = Column(String, unique=True, nullable=False)
     user_id = Column(Integer, nullable=False)  # References users.id from central DB (no FK constraint)
     user_name = Column(String, nullable=True)  # Cache for display
+    chat_name = Column(String(255), nullable=True)  # User-defined chat name
+    is_starred = Column(Boolean, default=False)  # Starred status for favorites
     
     __table_args__ = (
         Index('idx_chat_sessions_user_id', 'user_id'),
         Index('idx_chat_sessions_session_id', 'session_id'),
+        Index('idx_chat_sessions_is_starred', 'is_starred'),
+        Index('idx_chat_sessions_updated_at', 'updated_at'),
     )
     
     # Relationships
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    artifacts = relationship("Artifacts", back_populates="session", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<ChatSession(id={self.id}, session_id={self.session_id}, user_id={self.user_id})>"
@@ -269,6 +274,32 @@ class ChatMessage(PlantBase, BaseModel):
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, session_id={self.session_id})>"
 
+class Artifacts(PlantBase, BaseModel):
+    """Artifacts - Plant Database, Plant-wide"""
+    __tablename__ = "artifacts"
+    
+    session_id = Column(String, ForeignKey('chat_sessions.session_id'), nullable=False)
+    user_id = Column(Integer, nullable=False)  # References users.id from central DB (no FK constraint)
+    title = Column(String(255), nullable=False)  # Artifact title/name for easy identification
+    artifact_type = Column(String(50), nullable=False, default='general')  # Type of artifact (code, diagram, data, etc.)
+    content = Column(Text, nullable=False)  # The actual artifact content
+    artifact_metadata = Column(JSON, nullable=True)  # Additional metadata (format, size, etc.)
+    is_active = Column(Boolean, default=True)  # Soft delete functionality
+    message_id = Column(Integer, nullable=True)  # Reference to the chat message that generated this artifact
+    
+    __table_args__ = (
+        Index('idx_artifacts_session_id', 'session_id'),
+        Index('idx_artifacts_user_id', 'user_id'),
+        Index('idx_artifacts_artifact_type', 'artifact_type'),
+        Index('idx_artifacts_is_active', 'is_active'),
+        Index('idx_artifacts_message_id', 'message_id'),
+    )
+    
+    # Relationships
+    session = relationship("ChatSession", back_populates="artifacts")
+    
+    def __repr__(self):
+        return f"<Artifacts(id={self.id}, session_id={self.session_id}, title={self.title})>"
 # =============================================================================
 # WORKSPACE-SCOPED OPERATIONAL DATA
 # =============================================================================

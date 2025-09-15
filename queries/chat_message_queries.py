@@ -19,6 +19,7 @@ def message_serializer(message):
         response_data = message.response
     
     return {
+        "id": message.id,
         "status": "success",
         "data": response_data,  # Now returning parsed JSON data
         "timestamp": message.created_at.isoformat() if hasattr(message.created_at, 'isoformat') else str(message.created_at)
@@ -80,4 +81,90 @@ async def get_last_message(db: AsyncSession, session_id: str) -> Optional[ChatMe
         return message
     except Exception as e:
         logger.error(f'Error getting last chat message: {e}')
+        raise e
+
+async def update_chat_message(db: AsyncSession, message_id: int, message: str, user_id: int) -> Optional[ChatMessage]:
+    """
+    Update a chat message in the database
+    
+    Args:
+        message_id: The ID of the message to update
+        message: Updated message content
+        user_id: User ID for authorization
+        
+    Returns:
+        Updated message object or None if not found/unauthorized
+    """
+    try:
+        from sqlalchemy import update
+        # First check if the message exists and belongs to the user
+        query = select(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.user_id == user_id
+        )
+        result = await db.execute(query)
+        existing_message = result.scalar_one_or_none()
+        
+        if not existing_message:
+            logger.warning(f'Message {message_id} not found or unauthorized for user {user_id}')
+            return None
+            
+        # Update the message
+        update_query = update(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.user_id == user_id
+        ).values(message=message)
+        
+        await db.execute(update_query)
+        await db.commit()
+        
+        # Return the updated message
+        updated_query = select(ChatMessage).where(ChatMessage.id == message_id)
+        updated_result = await db.execute(updated_query)
+        updated_message = updated_result.scalar_one_or_none()
+        
+        logger.success(f'Chat message {message_id} updated successfully')
+        return message_serializer(updated_message)
+    except Exception as e:
+        logger.error(f'Error updating chat message: {e}')
+        raise e
+
+async def delete_chat_message(db: AsyncSession, message_id: int, user_id: int) -> bool:
+    """
+    Delete a chat message from the database
+    
+    Args:
+        message_id: The ID of the message to delete
+        user_id: User ID for authorization
+        
+    Returns:
+        True if deleted, False if not found/unauthorized
+    """
+    try:
+        from sqlalchemy import delete
+        # First check if the message exists and belongs to the user
+        query = select(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.user_id == user_id
+        )
+        result = await db.execute(query)
+        existing_message = result.scalar_one_or_none()
+        
+        if not existing_message:
+            logger.warning(f'Message {message_id} not found or unauthorized for user {user_id}')
+            return False
+            
+        # Delete the message
+        delete_query = delete(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.user_id == user_id
+        )
+        
+        await db.execute(delete_query)
+        await db.commit()
+        
+        logger.success(f'Chat message {message_id} deleted successfully')
+        return True
+    except Exception as e:
+        logger.error(f'Error deleting chat message: {e}')
         raise e

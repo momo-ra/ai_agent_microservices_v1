@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from utils.log import setup_logger
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from database import validate_plant_access
 
 logger = setup_logger(__name__)
 
@@ -12,6 +13,14 @@ class QueryService:
     """
     Service for transforming and executing queries
     """
+    
+    async def validate_plant_access(self, user_id: int, plant_id: str) -> bool:
+        """Validate if user has access to the plant database"""
+        try:
+            return await validate_plant_access(user_id, plant_id)
+        except Exception as e:
+            logger.error(f"Error validating plant access: {e}")
+            return False
     async def transform_query2(original_query):
         cleaned_query = original_query.strip()
         if cleaned_query.endswith(';'):
@@ -76,18 +85,25 @@ class QueryService:
         logger.info("Query transformation complete")
         return transformed_query
     
-    async def execute_query(self, db: AsyncSession, query: str, parameters: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], int, float]:
+    async def execute_query(self, db: AsyncSession, query: str, parameters: Optional[Dict[str, Any]] = None, user_id: Optional[int] = None, plant_id: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int, float]:
         """
         Execute a SQL query and return results
         
         Args:
             query: The SQL query to execute
             parameters: Optional query parameters
+            user_id: User ID for access validation
+            plant_id: Plant ID for access validation
             
         Returns:
             Tuple of (results, row_count, execution_time_ms)
         """
         logger.info(f"Executing query: {query[:100]}...")
+        
+        # Validate plant access if user_id and plant_id are provided
+        if user_id and plant_id:
+            if not await self.validate_plant_access(user_id, plant_id):
+                raise PermissionError(f"User {user_id} does not have access to plant {plant_id}")
         
         start_time = time.time()
         

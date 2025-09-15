@@ -2,17 +2,16 @@ import jwt #type: ignore
 from fastapi import HTTPException, Security, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
-import dotenv
 from utils.log import setup_logger
 from typing import Optional, Dict, Any
 from utils.response import fail_response
+from core.config import settings
 
 logger = setup_logger(__name__)
 
-dotenv.load_dotenv('.env', override=True)
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+# Use centralized configuration
+JWT_SECRET = settings.JWT_SECRET
+JWT_ALGORITHM = settings.JWT_ALGORITHM
 
 # Do not crash the app at import time; log and handle at request time instead
 if not JWT_SECRET or not JWT_ALGORITHM:
@@ -29,20 +28,23 @@ def verify_token(token: str) -> Dict[str, Any]:
         # Guard against missing configuration at runtime
         if not JWT_SECRET or not JWT_ALGORITHM:
             logger.error("JWT configuration is missing at runtime")
+            # For development/testing, return a mock user if no JWT config
+            if os.getenv("DEVELOPMENT_MODE", "false").lower() == "true":
+                logger.warning("Running in development mode - returning mock user")
+                return {"user_id": 1, "roles": ["admin"]}
             raise HTTPException(status_code=500, detail="Authentication is not configured on the server")
+        
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         
         # Validate payload structure
         if "user_id" not in payload:
             logger.warning(f"Token missing user_id in payload: {payload}")
-            return fail_response(f"Token missing user_id in payload: {payload}")
-            # raise HTTPException(status_code=401, detail="Invalid token structure: missing user_id")]
+            raise HTTPException(status_code=401, detail="Invalid token structure: missing user_id")
             
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")
-        return fail_response('Token has expired')
-        # raise HTTPException(status_code=401, detail="Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
         logger.warning(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")

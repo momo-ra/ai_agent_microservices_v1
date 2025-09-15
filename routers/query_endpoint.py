@@ -4,7 +4,8 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from services.query_service import QueryService
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_plant_db_with_context
+from database import get_plant_db_with_context, get_plant_context
+from middlewares.plant_access_middleware import validate_plant_access_middleware
 
 query_router = APIRouter(prefix="/query", tags=["query"])
 
@@ -56,7 +57,8 @@ async def transform_query(
 async def execute_query(
     request: QueryExecuteRequest,
     query_service: QueryService = Depends(get_query_service),
-    db: AsyncSession = Depends(get_plant_db_with_context)
+    db: AsyncSession = Depends(get_plant_db_with_context),
+    plant_context: dict = Depends(validate_plant_access_middleware)
 ):
     """
     Transform and execute a query, returning standardized results
@@ -65,11 +67,13 @@ async def execute_query(
         # First transform the query
         transformed_query = await query_service.transform_query(request.query)
         
-        # Then execute it
+        # Then execute it with plant access validation
         results, row_count, execution_time = await query_service.execute_query(
             db,
             transformed_query,
-            request.parameters
+            request.parameters,
+            user_id=plant_context.get("auth_user_id"),
+            plant_id=plant_context.get("plant_id")
         )
         
         return QueryExecuteResponse(
@@ -78,6 +82,8 @@ async def execute_query(
             row_count=row_count,
             execution_time_ms=execution_time
         )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
 

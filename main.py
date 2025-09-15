@@ -2,13 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers.endpoints import router
 from routers.query_endpoint import query_router
-from database import init_db
+from database import init_db, check_db_health, get_active_plants
 from utils.log import setup_logger
-from utils.response import success_response
+from utils.response import success_response, fail_response
 
 logger = setup_logger(__name__)
 
-app = FastAPI()
+app = FastAPI(
+    title="AI Agent Microservices",
+    description="Multi-plant AI agent service with dynamic database management",
+    version="2.0.0"
+)
 
 # Set up CORS
 app.add_middleware(
@@ -32,10 +36,50 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Error creating database tables: {e}")
         raise e
-    
+
 @app.get("/")
 async def root():
-    return success_response(message="Welcome in AI-Agent Microservices")
+    return success_response(message="Welcome to AI-Agent Microservices v2.0")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for the service"""
+    try:
+        health_status = await check_db_health()
+        return success_response(
+            data=health_status,
+            message="Service health check completed"
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return fail_response(
+            message=f"Health check failed: {str(e)}",
+            status_code=500
+        )
+
+@app.get("/plants")
+async def get_plants():
+    """Get list of active plants"""
+    try:
+        plants = await get_active_plants()
+        return success_response(
+            data=plants,
+            message="Active plants retrieved successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error getting plants: {e}")
+        return fail_response(
+            message=f"Failed to retrieve plants: {str(e)}",
+            status_code=500
+        )
+
+@app.get("/test")
+async def test_endpoint():
+    """Test endpoint without authentication"""
+    return success_response(
+        data={"message": "Service is running"},
+        message="Test endpoint working"
+    )
 
 if __name__ == "__main__":
     import uvicorn

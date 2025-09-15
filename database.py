@@ -32,7 +32,7 @@ async def get_plant_engine(plant_id: str) -> Tuple:
         # Get plant database connection info from central database
         async with CentralSessionLocal() as session:
             query = text("""
-                SELECT database_key, name 
+                SELECT database_key, database_key, name 
                 FROM plants_registry 
                 WHERE id = :plant_id AND is_active = true
             """)
@@ -44,11 +44,11 @@ async def get_plant_engine(plant_id: str) -> Tuple:
                 raise HTTPException(status_code=404, detail=f"Plant {plant_id} not found or inactive")
             
             database_key = plant_info.database_key
+            database_key = plant_info.database_key
             plant_name = plant_info.name
             
             # Get database URL using the settings method
             try:
-                # Use database_key for environment variable prefix per Settings.get_plant_database_url
                 db_url = settings.get_plant_database_url(database_key)
             except ValueError as e:
                 raise HTTPException(status_code=500, detail=str(e))
@@ -101,12 +101,12 @@ async def get_plant_db(plant_id: str) -> AsyncGenerator[AsyncSession, None]:
         raise HTTPException(status_code=500, detail=f"Database connection failed for Plant {plant_id}")
 
 async def get_plant_context(
-    plant_id: Optional[str] = Header(None, alias="plant-id"),
+    plant_id: Optional[str] = Header(None, alias="Plant-Id"),
     auth_user_id: Optional[str] = Header(None, alias="x-user-id")
 ) -> dict:
     """Get plant context from headers"""
     if not plant_id:
-        raise HTTPException(status_code=400, detail="Plant ID header (plant-id) is required")
+        raise HTTPException(status_code=400, detail="Plant ID header (Plant-Id) is required")
     
     return {
         "plant_id": plant_id,
@@ -137,7 +137,7 @@ async def get_db():
     except Exception:
         raise HTTPException(
             status_code=400,
-            detail="Plant ID header (plant-id) is required for database access"
+            detail="Plant ID header (Plant-Id) is required for database access"
         )
 
 # =============================================================================
@@ -186,21 +186,17 @@ async def init_db():
             logger.warning("No active plants found in plants_registry")
             return
         
-        # Initialize all plant databases and track failures
-        failures = []
+        # Initialize all plant databases
         for plant_id, plant_name in plants:
             try:
                 await init_plant_db(str(plant_id))
                 logger.success(f"Initialized database for Plant {plant_id} ({plant_name})")
             except Exception as e:
                 logger.error(f"Failed to initialize database for Plant {plant_id} ({plant_name}): {e}")
-                failures.append((plant_id, plant_name, str(e)))
+                # Continue with other plants even if one fails
                 continue
         
-        if failures:
-            logger.warning(f"Plant database initialization completed with {len(failures)} failure(s)")
-        else:
-            logger.success("All databases initialized successfully")
+        logger.success("All databases initialized successfully")
         
     except Exception as e:
         logger.error(f"Error getting plant list for initialization: {e}")
@@ -287,7 +283,7 @@ async def get_active_plants() -> list:
     try:
         async with CentralSessionLocal() as session:
             query = text("""
-                SELECT id, name, database_key 
+                SELECT id, name, database_key, database_key 
                 FROM plants_registry 
                 WHERE is_active = true 
                 ORDER BY name
@@ -297,6 +293,7 @@ async def get_active_plants() -> list:
                 {
                     "id": row.id,
                     "name": row.name,
+                    "database_key": row.database_key,
                     "database_key": row.database_key
                 }
                 for row in result.fetchall()
