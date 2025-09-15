@@ -439,3 +439,7 @@ class ChatService:
         except Exception as e:
             logger.error(f'Failed to get AI response: {str(e)}')
             raise ValueError(str(e))
+
+
+
+            
