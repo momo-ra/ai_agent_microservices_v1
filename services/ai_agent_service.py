@@ -325,11 +325,13 @@ class ChatService:
             raise e
     
     async def delete_session(self, db: AsyncSession, session_id: str, auth_data: Dict[str, Any]) -> bool:
-        """Delete a chat session"""
+        """Delete a chat session and all associated messages and artifacts"""
         try:
             if not await can_access_session(db, session_id, auth_data):
                 raise ValueError("Access denied: You do not have permission to access this session.")
-            await delete_session(db, session_id)
+            result = await delete_session(db, session_id)
+            if not result:
+                raise ValueError(f"Session {session_id} not found")
             return True
         except Exception as e:
             logger.error(f'Error deleting session: {e}')

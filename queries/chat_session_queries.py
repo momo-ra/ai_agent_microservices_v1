@@ -115,11 +115,21 @@ async def update_session_name(db: AsyncSession, session_id: str, chat_name: str)
 
 async def delete_session(db: AsyncSession, session_id: str):
     try:
-        from sqlalchemy import delete
-        query = delete(ChatSession).where(ChatSession.session_id == session_id)
-        await db.execute(query)
+        # First get the session to ensure it exists
+        session_query = select(ChatSession).where(ChatSession.session_id == session_id)
+        result = await db.execute(session_query)
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            logger.warning(f'Session {session_id} not found')
+            return False
+        
+        # Use SQLAlchemy ORM delete which respects cascade relationships
+        await db.delete(session)
         await db.commit()
-        logger.info(f'Session {session_id} deleted successfully')
+        logger.info(f'Session {session_id} and all associated messages and artifacts deleted successfully')
+        return True
     except Exception as e:
         logger.error(f'Error deleting session: {e}')
+        await db.rollback()
         raise 
