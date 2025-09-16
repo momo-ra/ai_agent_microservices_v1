@@ -159,7 +159,7 @@ class ArtifactService:
             # Determine artifact type based on AI response data
             artifact_type = self._determine_artifact_type(ai_response)
             
-            # Extract the main content (could be code, diagram, etc.)
+            # Extract the main content (just the answer)
             content = self._extract_content(answer, artifact_type, ai_data)
             
             # Create metadata with all AI response data
@@ -226,40 +226,9 @@ class ArtifactService:
             return ArtifactType.GENERAL
     
     def _extract_content(self, answer: str, artifact_type: str, ai_data: Optional[List[Dict[str, Any]]] = None) -> str:
-        """Extract the main content based on artifact type"""
-        import re
-        import json
-        
-        # For plot types, include both answer and any data
-        if artifact_type in [ArtifactType.BAR_PLOT, ArtifactType.LINE_PLOT, 
-                           ArtifactType.SCATTER_PLOT, ArtifactType.HISTOGRAM_PLOT, 
-                           ArtifactType.PIE_PLOT]:
-            content = answer.strip()
-            if ai_data:
-                content += f"\n\nData: {json.dumps(ai_data, indent=2)}"
-            return content
-        
-        # For code artifacts, extract code blocks
-        elif artifact_type == ArtifactType.CODE:
-            code_blocks = re.findall(r'```[\s\S]*?```', answer)
-            if code_blocks:
-                return '\n'.join(code_blocks)
-            return answer.strip()
-        
-        # For diagram artifacts, look for diagram content
-        elif artifact_type == ArtifactType.DIAGRAM:
-            return answer.strip()
-        
-        # For data artifacts, include structured data if available
-        elif artifact_type == ArtifactType.DATA:
-            content = answer.strip()
-            if ai_data:
-                content += f"\n\nStructured Data: {json.dumps(ai_data, indent=2)}"
-            return content
-        
-        # For all other types, return the full answer
-        else:
-            return answer.strip()
+        """Extract the main content based on artifact type - just return the answer"""
+        # Simply return the answer as content, no additional data needed
+        return answer.strip()
     
     def _format_artifact_response(self, artifact) -> Dict[str, Any]:
         """Format artifact for response"""
