@@ -215,7 +215,35 @@ class ChatService:
                 raise ValueError("Access denied: You do not have permission to access this session.")
             messages = await get_session_messages(db, session_id)
             logger.info(f"Retrieved {len(messages)} messages for session {session_id}")
-            history = [format_history_response(msg) for msg in messages]
+            
+            # Get artifacts for this session
+            artifacts = await self.artifact_service.get_session_artifacts(
+                db=db,
+                session_id=session_id,
+                user_id=auth_data.get("user_id"),
+                auth_data=auth_data
+            )
+            
+            # Create a mapping of message_id to artifact_ids
+            message_artifacts_map = {}
+            if artifacts and artifacts.get("artifacts"):
+                for artifact in artifacts["artifacts"]:
+                    message_id = artifact.get("message_id")
+                    if message_id:
+                        if message_id not in message_artifacts_map:
+                            message_artifacts_map[message_id] = []
+                        message_artifacts_map[message_id].append(artifact["id"])
+            
+            # Format history with message IDs and artifact IDs
+            history = []
+            for msg in messages:
+                formatted_msg = format_history_response(msg)
+                # Add message ID
+                formatted_msg["message_id"] = msg.id
+                # Add artifact IDs for this message
+                formatted_msg["artifact_ids"] = message_artifacts_map.get(msg.id, [])
+                history.append(formatted_msg)
+            
             return history
         except Exception as e:
             logger.error(f'Error getting session history: {e}')
