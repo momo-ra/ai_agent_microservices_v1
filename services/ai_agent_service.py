@@ -429,13 +429,6 @@ class ChatService:
                     try:
                         response_data = response.json()
                         
-                        # Print AI response to console for debugging
-                        print("=" * 50)
-                        print("AI RESPONSE RECEIVED:")
-                        print("=" * 50)
-                        print(json.dumps(response_data, indent=2))
-                        print("=" * 50)
-                        
                         # Handle the new schema format
                         if isinstance(response_data, list) and len(response_data) > 0:
                             logger.success('Received JSON response array from AI!')
