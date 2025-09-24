@@ -23,7 +23,7 @@ logger = setup_logger(__name__)
 
 load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "https://4897ece3c273.ngrok-free.app/ai-agent/chat"
+AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/chat"
 
 class ChatService:
     def __init__(self):

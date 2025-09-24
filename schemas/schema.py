@@ -173,3 +173,23 @@ class RecentChatsRequestSchema(BaseModel):
     days: int = Field(7, description="Number of days to look back")
     skip: int = Field(0, description="Number of results to skip")
     limit: int = Field(100, description="Maximum number of results to return")
+
+# =============================================================================
+# ADVISOR SERVICE SCHEMAS
+# =============================================================================
+
+class AdvisorRequestSchema(BaseModel):
+    """Schema for advisor service request"""
+    tag_id: str = Field(..., description="ID of the tag to analyze")
+    target_value: float = Field(..., description="Target value for the tag")
+    unit_of_measure: str = Field(..., description="Unit of measure for the target value")
+
+class TagListSchema(BaseModel):
+    """Schema for a list of tags"""
+    tags: List[str] = Field(..., description="List of tag IDs")
+
+class AdvisorResponseSchema(BaseModel):
+    """Schema for advisor service response - object with variables containing lists of tags"""
+    # This will be a dynamic object where each variable is a list of tags
+    # The exact structure will depend on the external function response
+    variables: Dict[str, List[str]] = Field(..., description="Object containing variables, each with a list of tag IDs")
