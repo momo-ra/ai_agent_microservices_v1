@@ -16,7 +16,7 @@ contourpy==1.3.2
 coverage==7.9.1
 cryptography==45.0.4
 cycler==0.12.1
--e git+ssh://git@github.com/momo-ra/datasource_library.git@7a32ebfd90468595c0412e7bd3b355087b6d8619#egg=datasources_lib&subdirectory=datasources
+-e git+https://github.com/momo-ra/datasource_library.git@7a32ebfd90468595c0412e7bd3b355087b6d8619#egg=datasources_lib&subdirectory=datasources
 docutils==0.21.2
 et_xmlfile==2.0.0
 fastapi==0.115.11

@@ -8,6 +8,7 @@ RUN apt-get update \
       build-essential \
       libpq-dev \
       git \
+      openssh-client \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
