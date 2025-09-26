@@ -1,4 +1,4 @@
-import jwt #type: ignore 
+import jwt as pyjwt #type: ignore 
 from fastapi import HTTPException, Security, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
@@ -34,7 +34,7 @@ def verify_token(token: str) -> Dict[str, Any]:
                 return {"user_id": 1, "roles": ["admin"]}
             raise HTTPException(status_code=500, detail="Authentication is not configured on the server")
         
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         
         # Validate payload structure
         if "user_id" not in payload:
@@ -42,10 +42,10 @@ def verify_token(token: str) -> Dict[str, Any]:
             raise HTTPException(status_code=401, detail="Invalid token structure: missing user_id")
             
         return payload
-    except jwt.ExpiredSignatureError:
+    except pyjwt.ExpiredSignatureError:
         logger.warning("Token has expired")
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError as e:
+    except pyjwt.InvalidTokenError as e:
         logger.warning(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
