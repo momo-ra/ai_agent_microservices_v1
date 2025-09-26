@@ -96,7 +96,7 @@ async def analyze_query(
     Analyze a query to extract key information
     """
     try:
-        analysis = await query_service.analyze_query(request.query)
+        analysis = query_service.analyze_query(request.query)
         return analysis
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error analyzing query: {str(e)}")

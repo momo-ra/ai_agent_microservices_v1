@@ -1,11 +1,15 @@
 # services/query_service.py
 import re
 import time
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, AsyncGenerator
 from utils.log import setup_logger
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import validate_plant_access
+from database import get_plant_neo4j_db
+from neo4j import AsyncSession as Neo4jAsyncSession
+from neo4j.exceptions import SessionError
+from tqdm import tqdm
 
 logger = setup_logger(__name__)
 
@@ -113,6 +117,9 @@ class QueryService:
             
             # Fetch all rows
             rows = result.fetchall()
+            print("==============================")
+            print(rows)
+            print("==============================")
             row_count = len(rows)
             
             # Convert to list of dicts for easier JSON serialization
@@ -186,3 +193,119 @@ class QueryService:
             analysis["tags"] = tag_matches
         
         return analysis
+
+
+##======================================================
+## NEO4J QUERY SERVICE
+##======================================================
+
+class KnowledgeGraph:
+    """
+    Async Knowledge Graph service for plant-specific Neo4j operations
+    """
+    
+    def __init__(self, plant_id: str):
+        self.plant_id = plant_id
+        # TODO: controllare su tutti i metodi che sia supportati labels multipli e che parta un eccezzione se non ci sono label
+        self.ENTITY_QUERY_CONSTRUCTOR = "MERGE (:{TYPE} {ATTRIBUTES})"
+        self.RELATIONSHIP_QUERY_CONSTRUCTOR = """
+        MATCH (x:{X_TYPE} {{name_id :"{X_ID}"}}),(y:{Y_TYPE} {{name_id: "{Y_ID}"}})
+        MERGE (x)-[:{REL_TYPE} {REL_ATTR}]->(y)
+        """
+        logger.info(f"KnowledgeGraph initialized for plant {plant_id}")
+
+    async def get_session(self) -> AsyncGenerator[Neo4jAsyncSession, Any]:
+        """Get a plant-specific Neo4j database session"""
+        async for session in get_plant_neo4j_db(self.plant_id):
+            yield session
+
+    # TODO: sarebbe da settare thread-safetiness ma nel pratico la scrittura viene fatta solo da backend quindi non è necesaria
+    async def write_queries(self, queries: List[str], session: Neo4jAsyncSession, batch_size: int = 500) -> int:
+        """
+        Execute write queries in batches using async Neo4j session
+        
+        Args:
+            queries: List of Cypher queries to execute
+            session: Async Neo4j session
+            batch_size: Number of queries to process in each batch
+            
+        Returns:
+            Total number of queries executed
+        """
+        async def write_tx_queries(tx, queries: List[str]):
+            for query in tqdm(queries, desc="batch", leave=False):
+                # Check if there are multiple queries
+                query_parts = query.split(";")
+                for q in query_parts:
+                    q = q.strip()
+                    if q != "":
+                        await tx.run(q)
+        
+        try:
+            # For transactions bigger than 1000 entries it's better to commit them each 1k units, otherwise too much memory is used
+            batches = 1 + (len(queries) // batch_size)
+            tot = 0
+            for i in tqdm(range(batches), desc="batch_number"):
+                start = i * batch_size
+                end = (i + 1) * batch_size if i < batches - 1 else len(queries)
+                batch = queries[start:end]
+                await session.execute_write(write_tx_queries, batch)
+                tot += len(batch)
+            
+            logger.info(f"Successfully executed {tot} queries")
+            return tot
+            
+        except SessionError as e:
+            logger.error(f'While executing some queries as a transaction, an error occurred.\nQueries:\n{queries}\n\n{e}')
+            raise
+        except Exception as e:
+            logger.error(f"Some errors with Neo4j database communication occurred.\n{e}")
+            raise
+        
+    # Already thread safe
+    async def read_queries(self, queries: List[str], session: Neo4jAsyncSession) -> List[List[dict]]:
+        """
+        Execute a list of read queries using async Neo4j session.
+        
+        Args:
+            queries: List of Cypher queries to execute
+            session: Async Neo4j session
+            
+        Returns:
+            List of query results (each result is a list of dictionaries).
+            Each query with no result will return [] as its result -> if 3 queries get no result, you will get [[][][]]
+            If some errors occur, the method returns [[]] as if you had a query with no results.
+        """
+        async def read_tx_queries(tx, queries: List[str]):
+            result = []
+            for query in queries:
+                query_result = await tx.run(query)
+                result.append(await query_result.data())
+            return result
+        
+        try:
+            res = await session.execute_read(read_tx_queries, queries)
+            return res
+        except SessionError as e:
+            logger.error(f'While executing some queries as a transaction, an error occurred.\nQueries:\n{queries}\n\n{e}')
+        except Exception as e:
+            logger.error(f"Some errors with Neo4j database communication occurred.\n{e}")
+        # If some exception is captured, return a list containing a void result for a query
+        return [[]]
+
+    async def read_query(self, query: str, session: Neo4jAsyncSession) -> List[dict]:
+        """
+        Execute a single query using async Neo4j session.
+        
+        Args:
+            query: Cypher query to execute
+            session: Async Neo4j session
+            
+        Returns:
+            List of dictionaries each representing a retrieved entry from the database.
+            Returns [] if there is no match.
+        """
+        results = await self.read_queries([query], session)
+        return results[0] if results else []
+
+    

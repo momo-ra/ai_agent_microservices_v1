@@ -7,6 +7,8 @@ from fastapi import Header, HTTPException, Depends
 from typing import Optional, AsyncGenerator, Dict, Tuple
 from sqlalchemy import text
 import asyncio
+from neo4j import AsyncGraphDatabase, AsyncSession as Neo4jAsyncSession
+from core.config import settings as core_settings
 
 logger = setup_logger(__name__)
 
@@ -19,9 +21,18 @@ central_engine = create_async_engine(settings.CENTRAL_DATABASE_URL, echo=False, 
 logger.info(f"Central Database initialized")
 CentralSessionLocal = async_sessionmaker(central_engine, class_=AsyncSession, expire_on_commit=False)
 
+# Central Neo4j Database Driver - Not used in this architecture
+# Each plant has its own Neo4j database configured in plants_registry
+central_neo4j_driver = None
+logger.info("Central Neo4j not used - each plant has its own Neo4j database")
+
 # Plant Database Engines Cache - {plant_id: (engine, session_maker)}
 plant_engines: Dict[str, Tuple] = {}
 plant_engines_lock = asyncio.Lock()
+
+# Plant Neo4j Drivers Cache - {plant_id: driver}
+plant_neo4j_drivers: Dict[str, AsyncGraphDatabase] = {}
+plant_neo4j_lock = asyncio.Lock()
 
 async def get_plant_engine(plant_id: str) -> Tuple:
     """Get or create database engine for a specific plant"""
@@ -32,7 +43,7 @@ async def get_plant_engine(plant_id: str) -> Tuple:
         # Get plant database connection info from central database
         async with CentralSessionLocal() as session:
             query = text("""
-                SELECT database_key, database_key, name 
+                SELECT database_key, name 
                 FROM plants_registry 
                 WHERE id = :plant_id AND is_active = true
             """)
@@ -43,7 +54,6 @@ async def get_plant_engine(plant_id: str) -> Tuple:
             if not plant_info:
                 raise HTTPException(status_code=404, detail=f"Plant {plant_id} not found or inactive")
             
-            database_key = plant_info.database_key
             database_key = plant_info.database_key
             plant_name = plant_info.name
             
@@ -63,6 +73,47 @@ async def get_plant_engine(plant_id: str) -> Tuple:
             
             return engine, session_maker
 
+async def get_plant_neo4j_driver(plant_id: str) -> AsyncGraphDatabase:
+    """Get or create Neo4j driver for a specific plant"""
+    async with plant_neo4j_lock:
+        if plant_id in plant_neo4j_drivers:
+            return plant_neo4j_drivers[plant_id]
+        
+        # Get plant connection info from central database
+        async with CentralSessionLocal() as session:
+            query = text("""
+                SELECT neo4j_key, name 
+                FROM plants_registry 
+                WHERE id = :plant_id AND is_active = true
+            """)
+            # Convert plant_id to integer for database query
+            result = await session.execute(query, {"plant_id": int(plant_id)})
+            plant_info = result.fetchone()
+            
+            if not plant_info:
+                raise HTTPException(status_code=404, detail=f"Plant {plant_id} not found or inactive")
+            
+            neo4j_key = plant_info.neo4j_key
+            plant_name = plant_info.name
+            
+            # Get Neo4j configuration using the settings method
+            try:
+                neo4j_config = core_settings.get_plant_neo4j_config(neo4j_key)
+            except ValueError as e:
+                raise HTTPException(status_code=500, detail=str(e))
+            
+            # Create Neo4j driver
+            driver = AsyncGraphDatabase.driver(
+                neo4j_config["uri"],
+                auth=(neo4j_config["user"], neo4j_config["password"])
+            )
+            
+            # Cache the driver
+            plant_neo4j_drivers[plant_id] = driver
+            logger.info(f"Created Neo4j connection for Plant {plant_id} ({plant_name}) at {neo4j_config['uri']}")
+            
+            return driver
+
 # =============================================================================
 # DATABASE DEPENDENCIES
 # =============================================================================
@@ -79,6 +130,33 @@ async def get_central_db() -> AsyncGenerator[AsyncSession, None]:
             raise e
         finally:
             await session.close()
+
+async def get_central_neo4j_db() -> AsyncGenerator[Neo4jAsyncSession, None]:
+    """Central Neo4j database dependency - for system-wide knowledge graph operations"""
+    # Central Neo4j is not used in this architecture
+    # Each plant has its own Neo4j database configured in plants_registry
+    logger.warning("Central Neo4j not available - use plant-specific endpoints instead")
+    raise HTTPException(
+        status_code=400, 
+        detail="Central Neo4j not available. Use plant-specific endpoints with plant-id header."
+    )
+
+async def get_plant_neo4j_db(plant_id: str) -> AsyncGenerator[Neo4jAsyncSession, None]:
+    """Plant Neo4j database dependency - for plant-specific knowledge graph operations"""
+    try:
+        driver = await get_plant_neo4j_driver(plant_id)
+        async with driver.session() as session:
+            try:
+                logger.debug(f"Creating plant Neo4j database session for Plant {plant_id}")
+                yield session
+            except Exception as e:
+                logger.error(f"Error in plant Neo4j database session for Plant {plant_id}: {e}")
+                raise e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create plant Neo4j database session for Plant {plant_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Neo4j connection failed for Plant {plant_id}")
 
 async def get_plant_db(plant_id: str) -> AsyncGenerator[AsyncSession, None]:
     """Plant database dependency - for plant-specific data"""
@@ -101,12 +179,12 @@ async def get_plant_db(plant_id: str) -> AsyncGenerator[AsyncSession, None]:
         raise HTTPException(status_code=500, detail=f"Database connection failed for Plant {plant_id}")
 
 async def get_plant_context(
-    plant_id: Optional[str] = Header(None, alias="Plant-Id"),
+    plant_id: Optional[str] = Header(None, alias="plant-id"),
     auth_user_id: Optional[str] = Header(None, alias="x-user-id")
 ) -> dict:
     """Get plant context from headers"""
     if not plant_id:
-        raise HTTPException(status_code=400, detail="Plant ID header (Plant-Id) is required")
+        raise HTTPException(status_code=400, detail="Plant ID header (plant-id) is required")
     
     return {
         "plant_id": plant_id,
@@ -118,6 +196,13 @@ async def get_plant_db_with_context(
 ) -> AsyncGenerator[AsyncSession, None]:
     """Plant database with context validation"""
     async for session in get_plant_db(context["plant_id"]):
+        yield session
+
+async def get_plant_neo4j_db_with_context(
+    context: dict = Depends(get_plant_context)
+) -> AsyncGenerator[Neo4jAsyncSession, None]:
+    """Plant Neo4j database with context validation"""
+    async for session in get_plant_neo4j_db(context["plant_id"]):
         yield session
 
 # =============================================================================
@@ -137,8 +222,14 @@ async def get_db():
     except Exception:
         raise HTTPException(
             status_code=400,
-            detail="Plant ID header (Plant-Id) is required for database access"
+            detail="Plant ID header (plant-id) is required for database access"
         )
+
+async def get_neo4j_db():
+    """Original get_neo4j_db function - now points to central Neo4j for backward compatibility"""
+    logger.warning("Using deprecated get_neo4j_db(). Please update to use plant-specific Neo4j functions.")
+    async for session in get_central_neo4j_db():
+        yield session
 
 # =============================================================================
 # CONVENIENCE FUNCTIONS FOR SPECIFIC OPERATIONS
@@ -164,16 +255,29 @@ async def get_card_db_for_plant(plant_id: str) -> AsyncGenerator[AsyncSession, N
     async for session in get_plant_db(plant_id):
         yield session
 
+async def get_hierarchy_neo4j_for_plant(plant_id: str) -> AsyncGenerator[Neo4jAsyncSession, None]:
+    """Get Neo4j session for hierarchy operations for a specific plant"""
+    async for session in get_plant_neo4j_db(plant_id):
+        yield session
+
+async def get_search_neo4j_for_plant(plant_id: str) -> AsyncGenerator[Neo4jAsyncSession, None]:
+    """Get Neo4j session for search operations for a specific plant"""
+    async for session in get_plant_neo4j_db(plant_id):
+        yield session
+
 # =============================================================================
 # DATABASE INITIALIZATION
 # =============================================================================
 
 async def init_db():
-    """Initialize central database and all active plant databases"""
+    """Initialize central database, Neo4j, and all active plant databases"""
     logger.info("Initializing databases...")
     
     # Initialize central database first
     await init_central_db()
+    
+    # Initialize central Neo4j database
+    await init_central_neo4j()
     
     # Get all active plants and initialize their databases
     try:
@@ -190,9 +294,10 @@ async def init_db():
         for plant_id, plant_name in plants:
             try:
                 await init_plant_db(str(plant_id))
-                logger.success(f"Initialized database for Plant {plant_id} ({plant_name})")
+                await init_plant_neo4j(str(plant_id))
+                logger.success(f"Initialized databases for Plant {plant_id} ({plant_name})")
             except Exception as e:
-                logger.error(f"Failed to initialize database for Plant {plant_id} ({plant_name}): {e}")
+                logger.error(f"Failed to initialize databases for Plant {plant_id} ({plant_name}): {e}")
                 # Continue with other plants even if one fails
                 continue
         
@@ -212,6 +317,20 @@ async def init_central_db():
         logger.error(f"Error creating central database tables: {e}")
         raise e
 
+async def init_central_neo4j():
+    """Initialize central Neo4j database and test connection"""
+    if central_neo4j_driver:
+        try:
+            async with central_neo4j_driver.session() as session:
+                result = await session.run("RETURN 1 as test")
+                await result.single()
+                logger.success("Central Neo4j database connection verified")
+        except Exception as e:
+            logger.error(f"Error connecting to central Neo4j database: {e}")
+            raise e
+    else:
+        logger.warning("Central Neo4j not configured, skipping central Neo4j initialization.")
+
 async def init_plant_db(plant_id: str):
     """Initialize a specific plant's database"""
     try:
@@ -223,15 +342,29 @@ async def init_plant_db(plant_id: str):
         logger.error(f"Error creating plant {plant_id} database tables: {e}")
         raise e
 
+async def init_plant_neo4j(plant_id: str):
+    """Initialize a specific plant's Neo4j database and test connection"""
+    try:
+        driver = await get_plant_neo4j_driver(plant_id)
+        async with driver.session() as session:
+            result = await session.run("RETURN 1 as test")
+            await result.single()
+            logger.success(f"Plant {plant_id} Neo4j database connection verified")
+    except Exception as e:
+        logger.error(f"Error connecting to plant {plant_id} Neo4j database: {e}")
+        raise e
+
 # =============================================================================
 # HEALTH CHECK & MONITORING
 # =============================================================================
 
 async def check_db_health() -> dict:
-    """Check health of central database and all active plant databases"""
+    """Check health of central database, Neo4j, and all active plant databases"""
     health_status = {
         "central_db": False,
-        "plant_dbs": {}
+        "central_neo4j_db": False,
+        "plant_dbs": {},
+        "plant_neo4j_dbs": {}
     }
     
     # Check central database
@@ -244,6 +377,21 @@ async def check_db_health() -> dict:
         logger.error(f"Central database health check failed: {e}")
         health_status["central_db"] = False
     
+    # Check central Neo4j database
+    if central_neo4j_driver:
+        try:
+            async with central_neo4j_driver.session() as session:
+                result = await session.run("RETURN 1 as test")
+                await result.single()
+                health_status["central_neo4j_db"] = True
+                logger.debug("Central Neo4j database health check passed")
+        except Exception as e:
+            logger.error(f"Central Neo4j database health check failed: {e}")
+            health_status["central_neo4j_db"] = False
+    else:
+        health_status["central_neo4j_db"] = False
+        logger.warning("Central Neo4j not configured, cannot check central Neo4j health.")
+    
     # Check all active plant databases
     try:
         async with CentralSessionLocal() as session:
@@ -253,6 +401,8 @@ async def check_db_health() -> dict:
         
         for plant_id, plant_name in plants:
             plant_id_str = str(plant_id)
+            
+            # Check PostgreSQL database
             try:
                 engine, _ = await get_plant_engine(plant_id_str)
                 async with engine.begin() as conn:
@@ -265,6 +415,25 @@ async def check_db_health() -> dict:
             except Exception as e:
                 logger.error(f"Plant {plant_id} ({plant_name}) database health check failed: {e}")
                 health_status["plant_dbs"][plant_id_str] = {
+                    "status": False,
+                    "name": plant_name,
+                    "error": str(e)
+                }
+            
+            # Check Neo4j database
+            try:
+                driver = await get_plant_neo4j_driver(plant_id_str)
+                async with driver.session() as session:
+                    result = await session.run("RETURN 1 as test")
+                    await result.single()
+                    health_status["plant_neo4j_dbs"][plant_id_str] = {
+                        "status": True,
+                        "name": plant_name
+                    }
+                    logger.debug(f"Plant {plant_id} ({plant_name}) Neo4j database health check passed")
+            except Exception as e:
+                logger.error(f"Plant {plant_id} ({plant_name}) Neo4j database health check failed: {e}")
+                health_status["plant_neo4j_dbs"][plant_id_str] = {
                     "status": False,
                     "name": plant_name,
                     "error": str(e)
@@ -283,7 +452,7 @@ async def get_active_plants() -> list:
     try:
         async with CentralSessionLocal() as session:
             query = text("""
-                SELECT id, name, database_key, database_key 
+                SELECT id, name, database_key, neo4j_key 
                 FROM plants_registry 
                 WHERE is_active = true 
                 ORDER BY name
@@ -294,7 +463,7 @@ async def get_active_plants() -> list:
                     "id": row.id,
                     "name": row.name,
                     "database_key": row.database_key,
-                    "database_key": row.database_key
+                    "neo4j_key": row.neo4j_key
                 }
                 for row in result.fetchall()
             ]
@@ -324,6 +493,47 @@ async def validate_plant_access(user_id: int, plant_id: str) -> bool:
         logger.error(f"Error validating plant access for user {user_id}, plant {plant_id}: {e}")
         return False
 
+async def close_connections():
+    """Close all database connections"""
+    logger.info("Closing database connections...")
+    
+    # Close central Neo4j driver
+    if central_neo4j_driver:
+        try:
+            await central_neo4j_driver.close()
+            logger.success("Central Neo4j driver closed")
+        except Exception as e:
+            logger.error(f"Error closing central Neo4j driver: {e}")
+    
+    # Close all plant Neo4j drivers
+    async with plant_neo4j_lock:
+        for plant_id, driver in plant_neo4j_drivers.items():
+            try:
+                await driver.close()
+                logger.success(f"Plant Neo4j driver closed for Plant {plant_id}")
+            except Exception as e:
+                logger.error(f"Error closing plant Neo4j driver for Plant {plant_id}: {e}")
+        plant_neo4j_drivers.clear()
+    
+    # Close central database engine
+    try:
+        await central_engine.dispose()
+        logger.success("Central database engine closed")
+    except Exception as e:
+        logger.error(f"Error closing central database engine: {e}")
+    
+    # Close all plant database engines
+    async with plant_engines_lock:
+        for plant_id, (engine, _) in plant_engines.items():
+            try:
+                await engine.dispose()
+                logger.success(f"Plant database engine closed for Plant {plant_id}")
+            except Exception as e:
+                logger.error(f"Error closing plant database engine for Plant {plant_id}: {e}")
+        plant_engines.clear()
+    
+    logger.success("All database connections closed")
+
 # =============================================================================
 # BACKWARD COMPATIBILITY VARIABLES
 # =============================================================================
@@ -333,5 +543,10 @@ async def validate_plant_access(user_id: int, plant_id: str) -> bool:
 # to use the new plant-specific database functions
 engine = central_engine
 SessionLocal = CentralSessionLocal
+neo4j_driver = central_neo4j_driver  # This will be None if central Neo4j is not configured
 
-logger.warning("Using deprecated 'engine' and 'SessionLocal' imports. Please update to use plant-specific database functions.")
+if central_neo4j_driver is None:
+    logger.warning("Central Neo4j not configured. Backward compatibility 'neo4j_driver' will be None.")
+    logger.warning("Please update query files to use plant-specific database functions.")
+
+logger.warning("Using deprecated 'engine', 'SessionLocal', and 'neo4j_driver' imports. Please update to use plant-specific database functions.")

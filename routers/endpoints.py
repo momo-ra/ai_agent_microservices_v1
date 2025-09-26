@@ -1,17 +1,25 @@
 # api/endpoints.py
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, List, Any
+from pydantic import BaseModel
 from services.ai_agent_service import ChatService
 from services.artifact_service import ArtifactService
+from services.advisor_services import AdvisorService
+from services.calculation_engine_services import build_execute_recommendation_query
 from schemas.schema import (
     ResponseModel, MessageRequest, ArtifactCreateSchema, ArtifactUpdateSchema,
-    ChatSessionUpdateSchema, ChatMessageUpdateSchema, ChatSearchRequestSchema, RecentChatsRequestSchema
+    ChatSessionUpdateSchema, ChatMessageUpdateSchema, ChatSearchRequestSchema, RecentChatsRequestSchema,
+    RecommendationCalculationEngineSchema, AdvisorNameIdsRequestSchema, AdvisorCalcRequestWithTargetsSchema,
+    AdvisorSimpleRequestSchema
 )
 from middlewares.auth_middleware import authenticate_user
 from middlewares.plant_access_middleware import validate_plant_access_middleware
 from utils.response import success_response, fail_response
+from utils.log import setup_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_plant_db_with_context
+
+logger = setup_logger(__name__)
 
 router = APIRouter(tags=["chat"])
 
@@ -22,6 +30,10 @@ def get_chat_service():
 # Dependency to get artifact service
 def get_artifact_service():
     return ArtifactService()
+
+# Dependency to get advisor service
+def get_advisor_service():
+    return AdvisorService()
 
 @router.post("/session", status_code=status.HTTP_201_CREATED, response_model=ResponseModel)
 async def create_chat_session(
@@ -611,3 +623,73 @@ async def delete_message(
             return fail_response(message="Message not found or access denied", status_code=404)
     except Exception as e:
         return fail_response(message=str(e), status_code=500)
+
+# =============================================================================
+# ADVISOR ENDPOINTS
+# =============================================================================
+
+@router.post("/advisor/calc-engine-result", response_model=ResponseModel)
+async def get_advisor_calc_engine_result(
+    request: AdvisorNameIdsRequestSchema,
+    advisor_service: AdvisorService = Depends(get_advisor_service),
+    auth_data: Dict[str, Any] = Depends(authenticate_user),
+    plant_context: dict = Depends(validate_plant_access_middleware)
+) -> Any:
+    """Get calculation engine result from name_ids"""
+    try:
+        result = await advisor_service.get_calc_engine_result(
+            name_ids=request.name_ids,
+            plant_id=plant_context["plant_id"]
+        )
+        
+        if result:
+            return success_response(
+                data=result,
+                message="Calculation engine result retrieved successfully"
+            )
+        else:
+            return fail_response(message="Failed to get calculation engine result", status_code=500)
+    except Exception as e:
+        return fail_response(message=str(e), status_code=500)
+
+@router.post("/advisor/send-to-ai", response_model=ResponseModel)
+async def send_advisor_to_ai(
+    request: AdvisorSimpleRequestSchema,
+    advisor_service: AdvisorService = Depends(get_advisor_service),
+    auth_data: Dict[str, Any] = Depends(authenticate_user),
+    plant_context: dict = Depends(validate_plant_access_middleware)
+) -> Any:
+    """Send calculation request with target values to AI"""
+    try:
+        # Print the request data to console for debugging
+        print("=" * 80)
+        print("🚀 ADVISOR SEND-TO-AI REQUEST DEBUG")
+        print("=" * 80)
+        print(f"📥 Received request:")
+        print(f"   - name_ids: {request.name_ids}")
+        print(f"   - target_values: {request.target_values}")
+        print(f"   - plant_id: {plant_context['plant_id']}")
+        print("=" * 80)
+        
+        ai_response = await advisor_service.send_to_ai(
+            request, 
+            plant_id=plant_context["plant_id"]
+        )
+        
+        print(f"📤 AI Response received:")
+        print(f"   - Response type: {type(ai_response)}")
+        print(f"   - Response data: {ai_response}")
+        print("=" * 80)
+        
+        if ai_response:
+            return success_response(
+                data=ai_response,
+                message="Request sent to AI successfully"
+            )
+        else:
+            return fail_response(message="Failed to get response from AI", status_code=500)
+    except Exception as e:
+        print(f"❌ ERROR in send_advisor_to_ai: {str(e)}")
+        print("=" * 80)
+        return fail_response(message=str(e), status_code=500)
+

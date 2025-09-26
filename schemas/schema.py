@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
-from typing import List, TypeVar, Optional, Generic, Dict, Any
+from typing import List, TypeVar, Optional, Generic, Dict, Any, Literal
 
 T = TypeVar('T')
 
@@ -193,3 +193,90 @@ class AdvisorResponseSchema(BaseModel):
     # This will be a dynamic object where each variable is a list of tags
     # The exact structure will depend on the external function response
     variables: Dict[str, List[str]] = Field(..., description="Object containing variables, each with a list of tag IDs")
+
+
+# =============================================================================
+# CALCULATION ENGINE SCHEMAS
+# =============================================================================
+
+class RecommendationRelationshipSchema(BaseModel):
+    type:Literal["affects","is_affected"]
+    gain: float
+    gain_unit: Optional[str] = None
+
+class RecommendationEntitySchema(BaseModel):
+    unit_of_measurement: Optional[str]=None
+    name_id:str
+    current_value: Optional[float]=None
+
+class RecommendationTargetEntitySchema(RecommendationEntitySchema):
+    target_value: Optional[float] = None
+
+class RecommendationLimitEntitySchema(RecommendationEntitySchema):
+    priority: Optional[str]=None
+    parameter_source: Optional[str]=None
+
+class RecommendationPairElemSchema(RecommendationEntitySchema):
+    slack_weight: Optional[RecommendationEntitySchema] =None
+    mv_weight: Optional[RecommendationEntitySchema]=None
+    low_limits: Optional[List[RecommendationLimitEntitySchema]]=None
+    high_limits: Optional[List[RecommendationLimitEntitySchema]]=None
+
+    @field_validator("low_limits",mode="before")
+    @staticmethod
+    def validate_low_limits(low_limits:Optional[List[RecommendationLimitEntitySchema]])->Optional[List[RecommendationLimitEntitySchema]]:
+        new_low_limits = []
+        for limit in low_limits:
+            if limit["name_id"] is not None:
+                new_low_limits.append(limit)
+        if new_low_limits == []:
+            return None
+        return new_low_limits
+        
+    @field_validator("high_limits",mode="before")
+    @staticmethod
+    def validate_high_limits(high_limits:Optional[List[RecommendationLimitEntitySchema]])->Optional[List[RecommendationLimitEntitySchema]]:
+        new_high_limits = []
+        for limit in high_limits:
+            if limit["name_id"] is not None:
+                new_high_limits.append(limit)
+        if new_high_limits == []:
+            return None
+        return new_high_limits
+
+class RecommendationCalculationEnginePairSchema(BaseModel):
+    "schema of each Pair element, out from the neo4j query"
+    "from is folloowed by _ because it's a reserved word"
+    relationship: RecommendationRelationshipSchema
+    from_: RecommendationPairElemSchema = Field(...,alias="from")
+    to_: RecommendationPairElemSchema = Field(...,alias="to")
+
+class RecommendationCalculationEngineSchema(BaseModel):
+    "schema of the input to the API call of the recommendation calculation engine"
+    pairs: List[RecommendationCalculationEnginePairSchema]
+    targets: List[RecommendationTargetEntitySchema]
+    label: Literal["recommendations","what_if"]
+
+# =============================================================================
+# ADVISOR ENDPOINT SCHEMAS
+# =============================================================================
+
+class AdvisorNameIdsRequestSchema(BaseModel):
+    """Schema for advisor name_ids request"""
+    name_ids: List[str] = Field(..., description="List of name IDs to analyze")
+
+class AdvisorCalcEngineResultSchema(BaseModel):
+    """Schema for advisor calculation engine result"""
+    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables")
+    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables")
+    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Targets")
+
+class AdvisorCalcRequestWithTargetsSchema(BaseModel):
+    """Schema for advisor calculation request with target values"""
+    calc_request: RecommendationCalculationEngineSchema = Field(..., description="Calculation engine request")
+    target_values: Dict[str, float] = Field(..., description="Target values for each variable")
+
+class AdvisorSimpleRequestSchema(BaseModel):
+    """Simplified schema for advisor request - frontend only sends name_ids and target_values"""
+    name_ids: List[str] = Field(..., description="List of name IDs to analyze")
+    target_values: Dict[str, float] = Field(..., description="Target values for each variable")
