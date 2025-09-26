@@ -105,7 +105,7 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
     ts_name_ids_str = ",".join(["'"+str(elem)+"'" for elem in ts_name_ids])
     ts_name_ids_str = f"({ts_name_ids_str})"
     ts_query =f"""
-    select distinct on(tags.name) tags.name, tags.unit_of_measure, ts.value
+    select distinct on(tags.name) tags.name, tags.unit_of_measure, ts.value, ts.timestamp
     from time_series ts
     inner join tags on ts.tag_id = tags.id
     where tags.name in {ts_name_ids_str}
@@ -125,6 +125,7 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
     for target in calc_engine_request.targets:
         target.current_value = ts_res[target.name_id]["value"]
         target.unit_of_measurement = ts_res[target.name_id]["unit_of_measure"]
+        target.time_stamp = ts_res[target.name_id]["timestamp"]
     # now let's fill the pairs
     for pair in calc_engine_request.pairs:
         #from

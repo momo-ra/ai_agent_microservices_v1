@@ -211,6 +211,7 @@ class RecommendationEntitySchema(BaseModel):
 
 class RecommendationTargetEntitySchema(RecommendationEntitySchema):
     target_value: Optional[float] = None
+    time_stamp: Optional[str] = None
 
 class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
