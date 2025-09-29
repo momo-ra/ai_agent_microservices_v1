@@ -256,7 +256,7 @@ class RecommendationCalculationEngineSchema(BaseModel):
     "schema of the input to the API call of the recommendation calculation engine"
     pairs: List[RecommendationCalculationEnginePairSchema]
     targets: List[RecommendationTargetEntitySchema]
-    label: Literal["recommendations","what_if"]
+    # label: Literal["recommendations","what_if"]
 
 # =============================================================================
 # ADVISOR ENDPOINT SCHEMAS
@@ -277,7 +277,9 @@ class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     calc_request: RecommendationCalculationEngineSchema = Field(..., description="Calculation engine request")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
 
-class AdvisorSimpleRequestSchema(BaseModel):
-    """Simplified schema for advisor request - frontend only sends name_ids and target_values"""
-    name_ids: List[str] = Field(..., description="List of name IDs to analyze")
+class AdvisorCompleteRequestSchema(BaseModel):
+    """Complete schema for advisor request - frontend sends full calculation engine data"""
+    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables from calculation engine")
+    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
+    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")

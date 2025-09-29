@@ -53,22 +53,16 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
 
 
 async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationPairElemSchema], List[RecommendationPairElemSchema]]:
+    """
+    Build and execute the recommendation query
+    """
     query = RECOMMENDATION_TEMPLATE.format(name_ids=name_ids)
     # let's execute the query
     ############################################ read_query return a list of dict or []
     # ==========================================
     # TODO: implement the execute query on the KG
     # ==========================================
-    kg = KnowledgeGraph(plant_id)
-    res = []
-    async for session in kg.get_session():
-        neo4j_result = await kg.read_query(query, session)
-        print(f"🔍 NEO4J QUERY RESULT: {neo4j_result}")
-        if neo4j_result:
-            res = [pair["pair"] for pair in neo4j_result]
-        else:
-            print("⚠️ No results from Neo4j query")
-            res = []
+    res = await execute_neo4j_query(query,plant_id)
     ############################################
     # now we need to build the calc_engine API input schema with neo4j query result
     # the targets unit of measurement is the one provided by the user or the one registered in the tsdb.
@@ -171,8 +165,21 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
         return input.targets, [], []
     ############################################
 
-
-
+async def execute_neo4j_query(query:str,plant_id:str)->List[dict]:
+    """
+    Execute a Neo4j query and return the result
+    """
+    kg = KnowledgeGraph(plant_id)
+    res = []
+    async for session in kg.get_session():
+        neo4j_result = await kg.read_query(query, session)
+        print(f"🔍 NEO4J QUERY RESULT: {neo4j_result}")
+        if neo4j_result:
+            res = [pair["pair"] for pair in neo4j_result]
+        else:
+            print("⚠️ No results from Neo4j query")
+            res = []
+    return res
 
 def finish_calc_engine_request(target_values:Dict[str,float],calc_engine_request:RecommendationCalculationEngineSchema):
     # target value is a dict containg the targets_name_id as key and their inputted targets value as value
