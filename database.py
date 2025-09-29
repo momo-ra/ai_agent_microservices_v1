@@ -103,16 +103,25 @@ async def get_plant_neo4j_driver(plant_id: str) -> AsyncGraphDatabase:
                 raise HTTPException(status_code=500, detail=str(e))
             
             # Create Neo4j driver
-            driver = AsyncGraphDatabase.driver(
-                neo4j_config["uri"],
-                auth=(neo4j_config["user"], neo4j_config["password"])
-            )
-            
-            # Cache the driver
-            plant_neo4j_drivers[plant_id] = driver
-            logger.info(f"Created Neo4j connection for Plant {plant_id} ({plant_name}) at {neo4j_config['uri']}")
-            
-            return driver
+            try:
+                driver = AsyncGraphDatabase.driver(
+                    neo4j_config["uri"],
+                    auth=(neo4j_config["user"], neo4j_config["password"])
+                )
+                
+                # Test the connection
+                async with driver.session() as session:
+                    result = await session.run("RETURN 1 as test")
+                    await result.single()
+                
+                # Cache the driver
+                plant_neo4j_drivers[plant_id] = driver
+                logger.info(f"Created Neo4j connection for Plant {plant_id} ({plant_name}) at {neo4j_config['uri']}")
+                
+                return driver
+            except Exception as e:
+                logger.warning(f"Failed to connect to Neo4j for Plant {plant_id} ({plant_name}): {e}")
+                raise HTTPException(status_code=503, detail=f"Neo4j service unavailable for Plant {plant_id}")
 
 # =============================================================================
 # DATABASE DEPENDENCIES
@@ -138,7 +147,7 @@ async def get_central_neo4j_db() -> AsyncGenerator[Neo4jAsyncSession, None]:
     logger.warning("Central Neo4j not available - use plant-specific endpoints instead")
     raise HTTPException(
         status_code=400, 
-        detail="Central Neo4j not available. Use plant-specific endpoints with plant-id header."
+        detail="Central Neo4j not available. Use plant-specific endpoints with Plant-Id header."
     )
 
 async def get_plant_neo4j_db(plant_id: str) -> AsyncGenerator[Neo4jAsyncSession, None]:
@@ -179,12 +188,12 @@ async def get_plant_db(plant_id: str) -> AsyncGenerator[AsyncSession, None]:
         raise HTTPException(status_code=500, detail=f"Database connection failed for Plant {plant_id}")
 
 async def get_plant_context(
-    plant_id: Optional[str] = Header(None, alias="plant-id"),
+    plant_id: Optional[str] = Header(None, alias="Plant-Id"),
     auth_user_id: Optional[str] = Header(None, alias="x-user-id")
 ) -> dict:
     """Get plant context from headers"""
     if not plant_id:
-        raise HTTPException(status_code=400, detail="Plant ID header (plant-id) is required")
+        raise HTTPException(status_code=400, detail="Plant ID header (Plant-Id) is required")
     
     return {
         "plant_id": plant_id,
@@ -222,7 +231,7 @@ async def get_db():
     except Exception:
         raise HTTPException(
             status_code=400,
-            detail="Plant ID header (plant-id) is required for database access"
+            detail="Plant ID header (Plant-Id) is required for database access"
         )
 
 async def get_neo4j_db():
@@ -351,8 +360,9 @@ async def init_plant_neo4j(plant_id: str):
             await result.single()
             logger.success(f"Plant {plant_id} Neo4j database connection verified")
     except Exception as e:
-        logger.error(f"Error connecting to plant {plant_id} Neo4j database: {e}")
-        raise e
+        logger.warning(f"Neo4j database not available for plant {plant_id}: {e}")
+        logger.info(f"Plant {plant_id} will continue without Neo4j functionality")
+        # Don't raise the exception - allow the application to continue without Neo4j
 
 # =============================================================================
 # HEALTH CHECK & MONITORING
@@ -432,11 +442,12 @@ async def check_db_health() -> dict:
                     }
                     logger.debug(f"Plant {plant_id} ({plant_name}) Neo4j database health check passed")
             except Exception as e:
-                logger.error(f"Plant {plant_id} ({plant_name}) Neo4j database health check failed: {e}")
+                logger.warning(f"Plant {plant_id} ({plant_name}) Neo4j database not available: {e}")
                 health_status["plant_neo4j_dbs"][plant_id_str] = {
                     "status": False,
                     "name": plant_name,
-                    "error": str(e)
+                    "error": str(e),
+                    "note": "Neo4j functionality disabled for this plant"
                 }
     except Exception as e:
         logger.error(f"Error checking plant databases health: {e}")

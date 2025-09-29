@@ -27,6 +27,9 @@ class Settings:
     # Note: This is not used in the current architecture
     # Each plant has its own Neo4j database configured in plants_registry
     NEO4J_HOST: str = os.getenv("NEO4J_HOST", "")
+    print("--------------------------------")
+    print(NEO4J_HOST)
+    print("--------------------------------")
     NEO4J_PORT: str = os.getenv("NEO4J_PORT", "")
     NEO4J_USER: str = os.getenv("NEO4J_USER", "")
     NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD", "")
