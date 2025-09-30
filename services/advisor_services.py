@@ -1,17 +1,22 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.log import setup_logger
 from queries.advisor_queries import get_advisor_data, get_related_tags
+from queries.chat_session_queries import create_chat_session, get_chat_session, update_chat_session
+from queries.chat_message_queries import create_chat_message
 from schemas.schema import (
     AdvisorRequestSchema, AdvisorResponseSchema, AdvisorNameIdsRequestSchema,
     AdvisorCalcEngineResultSchema, AdvisorCalcRequestWithTargetsSchema,
-    AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType
+    AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType, AiResponseSchema
 )
 from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request
+from services.artifact_service import ArtifactService
 from typing import Dict, Any, Optional, List, Tuple
 import json
 import httpx
 from dotenv import load_dotenv
 import os
+import uuid
+from datetime import datetime
 
 load_dotenv('.env', override=True)
 
@@ -24,6 +29,7 @@ class AdvisorService:
     
     def __init__(self):
         self.logger = logger
+        self.artifact_service = ArtifactService()
     
     async def process_advisor_request(
         self, 
@@ -255,13 +261,16 @@ class AdvisorService:
     async def send_manual_ai_request(
         self, 
         manual_request: ManualAiRequestSchema,
+        db: AsyncSession,
+        user_id: int,
+        auth_data: Dict[str, Any],
         plant_id: str = None
     ) -> Optional[Dict[str, Any]]:
         """Send manual AI request with different question types"""
         try:
             self.logger.info('Sending manual AI request')
             
-            # Prepare the request data based on question type
+            # Step 1: Prepare the request data based on question type
             ai_request_data = {
                 "question_type": manual_request.question_type.value,
                 "plant_id": plant_id
@@ -313,11 +322,92 @@ class AdvisorService:
                     
                     ai_request_data["data"] = calc_request.dict()
             
-            # Call the AI service
+            # Step 2: Call the AI service first
+            starttime = datetime.now()
             ai_response = await self._get_ai_response(ai_request_data, plant_id)
+            execution_time = (datetime.now() - starttime).total_seconds()
             
-            self.logger.success('Successfully sent manual AI request and received response')
-            return ai_response
+            # Step 3: Only create session and message if AI responds successfully
+            if ai_response:
+                try:
+                    # Create a new chat session
+                    session_id = str(uuid.uuid4())
+                    created_session = await create_chat_session(db, session_id, user_id)
+                    if not created_session:
+                        self.logger.error('Failed to create session')
+                        raise ValueError("Failed to create session")
+                    
+                    self.logger.success(f'Session created: {session_id}')
+                    
+                    # Create a dummy message in the session
+                    dummy_message = f"Manual AI request: {manual_request.question_type.value}"
+                    
+                    # Create chat message record
+                    json_response = json.dumps(ai_response)
+                    chat_message = await create_chat_message(
+                        db=db,
+                        session_id=session_id,
+                        user_id=user_id,
+                        message=dummy_message,
+                        execution_time=execution_time,
+                        response=json_response,
+                        query="Manual AI request - direct response from AI service"
+                    )
+                    
+                    # Create artifacts from AI response
+                    created_artifacts = []
+                    try:
+                        for ai_item in ai_response:
+                            artifact = await self.artifact_service.create_artifact_from_ai_response(
+                                db=db,
+                                session_id=session_id,
+                                user_id=user_id,
+                                ai_response=ai_item,
+                                message_id=chat_message.get('id') if chat_message and isinstance(chat_message, dict) else None
+                            )
+                            if artifact:
+                                created_artifacts.append(artifact)
+                                self.logger.info(f"Created artifact: {artifact.get('title', 'Untitled')}")
+                    except Exception as artifact_error:
+                        self.logger.warning(f"Failed to create artifacts: {artifact_error}")
+                        # Don't fail the main response if artifact creation fails
+                    
+                    # Prepare response with session info and artifacts
+                    response = {
+                        "session_id": session_id,
+                        "message": dummy_message,
+                        "response": ai_response,
+                        "artifacts": created_artifacts,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                    self.logger.success('Successfully sent manual AI request and received response')
+                    return response
+                    
+                except Exception as e:
+                    self.logger.error(f'Error processing AI response: {e}')
+                    error_response = {
+                        "response": [],
+                        "artifacts": [],
+                        "timestamp": datetime.now().isoformat(),
+                        "error": {
+                            "type": "response_processing_error",
+                            "message": "Failed to process AI response. Please try a different question."
+                        }
+                    }
+                    return error_response
+            else:
+                # No AI response - don't create session
+                error_response = {
+                    "response": [],
+                    "artifacts": [],
+                    "timestamp": datetime.now().isoformat(),
+                    "error": {
+                        "type": "invalid_response",
+                        "message": "Unable to generate a valid response for your question. Please try rephrasing it."
+                    }
+                }
+                return error_response
             
         except Exception as e:
             self.logger.error(f'Error sending manual AI request: {e}')

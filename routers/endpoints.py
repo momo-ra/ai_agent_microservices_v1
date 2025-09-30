@@ -658,12 +658,16 @@ async def send_manual_ai_request(
     request: ManualAiRequestSchema,
     advisor_service: AdvisorService = Depends(get_advisor_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
-    plant_context: dict = Depends(validate_plant_access_middleware)
+    plant_context: dict = Depends(validate_plant_access_middleware),
+    db: AsyncSession = Depends(get_plant_db_with_context)
 ) -> Any:
     """Send manual AI request with different question types"""
     try:
         ai_response = await advisor_service.send_manual_ai_request(
             request, 
+            db=db,
+            user_id=auth_data.get("user_id"),
+            auth_data=auth_data,
             plant_id=plant_context["plant_id"]
         )
         
