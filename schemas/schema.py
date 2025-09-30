@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
-from typing import List, TypeVar, Optional, Generic, Dict, Any, Literal
+from typing import List, TypeVar, Optional, Generic, Dict, Any, Literal, Union
 
 T = TypeVar('T')
 
@@ -14,7 +14,8 @@ class ResponseModel(BaseModel, Generic[T]):
 class AnswerType(str, Enum):
     """Enum for possible answer types"""
     ANSWER = "Answer"
-    AI_FEEDBACK = "Ai Feedback"
+    AI_FEEDBACK = "Ai feedback"
+    ERROR = "Error"
 
 class PlotType(str, Enum):
     """Enum for possible plot types"""
@@ -30,21 +31,57 @@ class AiDataResponseSchema(BaseModel):
     data: List[dict] = Field(..., description="Data points")
 
 class QuestionType(str, Enum):
-    """Enum for the type of the user's question"""
-    ADVICE = "advice"
-    VIEW = "view"
+    """Enum for question types"""
     EXPLORE = "explore"
+    VIEW = "view"
+    ADVICE = "advice"
 
+class GroupingFunction(str, Enum):
+    """Enum for grouping functions"""
+    AVG = "AVG"
+    SUM = "SUM"
+    MIN = "MIN"
+    MAX = "MAX"
+    COUNT = "COUNT"
+    FIRST = "FIRST"
+    LAST = "LAST"
+
+class EntitySchema(BaseModel):
+    """Schema for retrieving an entity within the knowledgeGraph"""
+    labels: List[str] = Field(..., min_length=1, description="The labels of the entity, Not nullable, Not empty")
+    name_id: str = Field(..., min_length=1, description="The name_id of the entity, Not nullable, Not empty")
+
+class TsQuerySchema(BaseModel):
+    """Schema for time series queries"""
+    start_date: str
+    end_date: str
+    name_ids: List[str]
+    time_bucket: Optional[str] = None
+    grouping_function: Optional[GroupingFunction] = None
+    plot_type: Optional[PlotType] = None
+
+class ShortcutQuestion(BaseModel):
+    """Schema for shortcut questions to AI"""
+    data: Union[List[EntitySchema], TsQuerySchema, 'RecommendationCalculationEngineSchema']
+    label: QuestionType
+    
+    @field_validator("data", mode="after")
+    def validate_data(self):
+        if (self.label == QuestionType.VIEW and not isinstance(self.data, TsQuerySchema)) or \
+           (self.label == QuestionType.EXPLORE and not isinstance(self.data, list)) or \
+           (self.label == QuestionType.ADVICE and not isinstance(self.data, RecommendationCalculationEngineSchema)):
+            raise ValueError(f"Invalid data type for {self.label}")
+        return self
 
 # be aware that the ai responses with List of this schema.
 class AiResponseSchema(BaseModel):
     answer: str = Field(..., description="Answer provided by the AI")
-    data: Optional[List[AiDataResponseSchema]] = Field(None, description="Additional data related to the answer")
-    answer_type: Optional[AnswerType] = Field(..., description="Type of the answer")
+    data: Optional[List[Union[str, Dict]]] = Field(None, description="Additional data related to the answer")
+    answer_type: AnswerType = Field(..., description="Type of the answer")
     plot_type: Optional[PlotType] = Field(None, description="Type of plot if applicable")
     question_type: Optional[QuestionType] = Field(None, description="The type of question: advice, view, or explore")
     rewritten_question: str = Field(..., description="The rewritten question by the AI")
-
+    advice_data: Optional['AdvisorCompleteRequestSchema'] = Field(None, description="Advice data when question_type is advice")
 
 class DataPoint(BaseModel):
     """Individual data point with timestamp and value"""
@@ -258,6 +295,13 @@ class RecommendationCalculationEngineSchema(BaseModel):
     targets: List[RecommendationTargetEntitySchema]
     # label: Literal["recommendations","what_if"]
 
+class AdvisorCompleteRequestSchema(BaseModel):
+    """Complete schema for advisor request - frontend sends full calculation engine data"""
+    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables from calculation engine")
+    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
+    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
+    target_values: Dict[str, float] = Field(..., description="Target values for each variable")
+
 # =============================================================================
 # ADVISOR ENDPOINT SCHEMAS
 # =============================================================================
@@ -277,9 +321,17 @@ class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     calc_request: RecommendationCalculationEngineSchema = Field(..., description="Calculation engine request")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
 
-class AdvisorCompleteRequestSchema(BaseModel):
-    """Complete schema for advisor request - frontend sends full calculation engine data"""
-    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables from calculation engine")
-    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
-    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
-    target_values: Dict[str, float] = Field(..., description="Target values for each variable")
+
+
+class ManualAiRequestSchema(BaseModel):
+    """Schema for manual AI requests with different question types"""
+    question_type: QuestionType = Field(..., description="Type of question to ask AI")
+    
+    # For explore type - use EntitySchema
+    entity_data: Optional[List[EntitySchema]] = Field(None, description="Entity data for explore type")
+    
+    # For view type - use TsQuerySchema
+    ts_query_data: Optional[TsQuerySchema] = Field(None, description="Time series query data for view type")
+    
+    # For advice type - use the complete request schema
+    advice_data: Optional[AdvisorCompleteRequestSchema] = Field(None, description="Advice data for advice type")

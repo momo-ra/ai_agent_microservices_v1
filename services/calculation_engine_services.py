@@ -51,7 +51,6 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
     return input.targets, dependent_variables_data, independent_variables_data
 
 
-
 async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationPairElemSchema], List[RecommendationPairElemSchema]]:
     """
     Build and execute the recommendation query

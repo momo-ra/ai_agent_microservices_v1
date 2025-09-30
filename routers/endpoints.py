@@ -10,7 +10,7 @@ from schemas.schema import (
     ResponseModel, MessageRequest, ArtifactCreateSchema, ArtifactUpdateSchema,
     ChatSessionUpdateSchema, ChatMessageUpdateSchema, ChatSearchRequestSchema, RecentChatsRequestSchema,
     RecommendationCalculationEngineSchema, AdvisorNameIdsRequestSchema, AdvisorCalcRequestWithTargetsSchema,
-    AdvisorCompleteRequestSchema
+    ManualAiRequestSchema
 )
 from middlewares.auth_middleware import authenticate_user
 from middlewares.plant_access_middleware import validate_plant_access_middleware
@@ -653,16 +653,16 @@ async def get_advisor_calc_engine_result(
         return fail_response(message=str(e), status_code=500)
 
 
-@router.post("/advisor/send-to-ai", response_model=ResponseModel)
-async def send_advisor_to_ai(
-    request: AdvisorCompleteRequestSchema,
+@router.post("/ai/manual-request", response_model=ResponseModel)
+async def send_manual_ai_request(
+    request: ManualAiRequestSchema,
     advisor_service: AdvisorService = Depends(get_advisor_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware)
 ) -> Any:
-    """Send complete calculation engine data to AI"""
+    """Send manual AI request with different question types"""
     try:
-        ai_response = await advisor_service.send_complete_to_ai(
+        ai_response = await advisor_service.send_manual_ai_request(
             request, 
             plant_id=plant_context["plant_id"]
         )
@@ -670,7 +670,7 @@ async def send_advisor_to_ai(
         if ai_response:
             return success_response(
                 data=ai_response,
-                message="Complete request sent to AI successfully"
+                message="Manual AI request sent successfully"
             )
         else:
             return fail_response(message="Failed to get response from AI", status_code=500)

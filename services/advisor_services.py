@@ -4,7 +4,7 @@ from queries.advisor_queries import get_advisor_data, get_related_tags
 from schemas.schema import (
     AdvisorRequestSchema, AdvisorResponseSchema, AdvisorNameIdsRequestSchema,
     AdvisorCalcEngineResultSchema, AdvisorCalcRequestWithTargetsSchema,
-    AdvisorCompleteRequestSchema
+    AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType
 )
 from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request
 from typing import Dict, Any, Optional, List, Tuple
@@ -251,59 +251,74 @@ class AdvisorService:
             self.logger.error(f'Failed to get AI response: {str(e)}')
             raise ValueError(str(e))
     
-    async def send_complete_to_ai(
+    
+    async def send_manual_ai_request(
         self, 
-        complete_request: AdvisorCompleteRequestSchema,
+        manual_request: ManualAiRequestSchema,
         plant_id: str = None
     ) -> Optional[Dict[str, Any]]:
-        """Send complete calculation engine data to AI"""
+        """Send manual AI request with different question types"""
         try:
-            self.logger.info('Sending complete calc request to AI')
+            self.logger.info('Sending manual AI request')
             
-            # Create the RecommendationCalculationEngineSchema from the complete data
-            from schemas.schema import RecommendationCalculationEngineSchema, RecommendationCalculationEnginePairSchema
-            
-            # Build pairs from dependent and independent variables
-            pairs = []
-            if complete_request.dependent_variables and complete_request.independent_variables:
-                for dep_var in complete_request.dependent_variables:
-                    for ind_var in complete_request.independent_variables:
-                        relationship = {
-                            "type": "affects",
-                            "gain": 1.0,
-                            "gain_unit": None
-                        }
-                        
-                        pair_data = {
-                            "relationship": relationship,
-                            "from": ind_var.dict(),
-                            "to": dep_var.dict()
-                        }
-                        
-                        pair = RecommendationCalculationEnginePairSchema(**pair_data)
-                        pairs.append(pair)
-            
-            # Create the full calculation request
-            calc_request = RecommendationCalculationEngineSchema(
-                pairs=pairs,
-                targets=complete_request.targets
-            )
-            
-            # Apply target values
-            finish_calc_engine_request(complete_request.target_values, calc_request)
-            
-            # Prepare the request data for AI service
+            # Prepare the request data based on question type
             ai_request_data = {
-                "calc_request": calc_request.dict(),
-                "target_values": complete_request.target_values
+                "question_type": manual_request.question_type.value,
+                "plant_id": plant_id
             }
+            
+            # Add specific data based on question type
+            if manual_request.question_type == QuestionType.EXPLORE:
+                if manual_request.entity_data:
+                    ai_request_data["data"] = [entity.dict() for entity in manual_request.entity_data]
+                
+            elif manual_request.question_type == QuestionType.VIEW:
+                if manual_request.ts_query_data:
+                    ai_request_data["data"] = manual_request.ts_query_data.dict()
+                
+            elif manual_request.question_type == QuestionType.ADVICE:
+                # For advice type, use the complete advice data
+                if manual_request.advice_data:
+                    # Create the RecommendationCalculationEngineSchema from the advisor data
+                    from schemas.schema import RecommendationCalculationEngineSchema, RecommendationCalculationEnginePairSchema
+                    
+                    # Build pairs from dependent and independent variables
+                    pairs = []
+                    if manual_request.advice_data.dependent_variables and manual_request.advice_data.independent_variables:
+                        for dep_var in manual_request.advice_data.dependent_variables:
+                            for ind_var in manual_request.advice_data.independent_variables:
+                                relationship = {
+                                    "type": "affects",
+                                    "gain": 1.0,
+                                    "gain_unit": None
+                                }
+                                
+                                pair_data = {
+                                    "relationship": relationship,
+                                    "from": ind_var.dict(),
+                                    "to": dep_var.dict()
+                                }
+                                
+                                pair = RecommendationCalculationEnginePairSchema(**pair_data)
+                                pairs.append(pair)
+                    
+                    # Create the full calculation request
+                    calc_request = RecommendationCalculationEngineSchema(
+                        pairs=pairs,
+                        targets=manual_request.advice_data.targets
+                    )
+                    
+                    # Apply target values
+                    finish_calc_engine_request(manual_request.advice_data.target_values, calc_request)
+                    
+                    ai_request_data["data"] = calc_request.dict()
             
             # Call the AI service
             ai_response = await self._get_ai_response(ai_request_data, plant_id)
             
-            self.logger.success('Successfully sent complete request to AI and received response')
+            self.logger.success('Successfully sent manual AI request and received response')
             return ai_response
             
         except Exception as e:
-            self.logger.error(f'Error sending complete request to AI: {e}')
+            self.logger.error(f'Error sending manual AI request: {e}')
             raise e
