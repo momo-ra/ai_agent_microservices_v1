@@ -66,12 +66,14 @@ class ShortcutQuestion(BaseModel):
     label: QuestionType
     
     @field_validator("data", mode="after")
-    def validate_data(self):
-        if (self.label == QuestionType.VIEW and not isinstance(self.data, TsQuerySchema)) or \
-           (self.label == QuestionType.EXPLORE and not isinstance(self.data, list)) or \
-           (self.label == QuestionType.ADVICE and not isinstance(self.data, RecommendationCalculationEngineSchema)):
-            raise ValueError(f"Invalid data type for {self.label}")
-        return self
+    @classmethod
+    def validate_data(cls, v, info):
+        label = info.data.get("label")
+        if (label == QuestionType.VIEW and not isinstance(v, TsQuerySchema)) or \
+           (label == QuestionType.EXPLORE and not isinstance(v, list)) or \
+           (label == QuestionType.ADVICE and not isinstance(v, RecommendationCalculationEngineSchema)):
+            raise ValueError(f"Invalid data type for {label}")
+        return v
 
 # be aware that the ai responses with List of this schema.
 class AiResponseSchema(BaseModel):
