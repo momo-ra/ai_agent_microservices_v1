@@ -258,10 +258,14 @@ class ChatSession(PlantBase, BaseModel):
     session_id = Column(String, unique=True, nullable=False)
     user_id = Column(Integer, nullable=False)  # References users.id from central DB (no FK constraint)
     user_name = Column(String, nullable=True)  # Cache for display
+    chat_name = Column(String, nullable=True)  # User-defined name for the chat session
+    is_starred = Column(Boolean, default=False, nullable=False)  # Whether the chat session is starred/favorited
     
     __table_args__ = (
         Index('idx_chat_sessions_user_id', 'user_id'),
         Index('idx_chat_sessions_session_id', 'session_id'),
+        Index('idx_chat_sessions_is_starred', 'is_starred'),
+        Index('idx_chat_sessions_updated_at', 'updated_at'),
     )
     
     # Relationships
