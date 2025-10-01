@@ -111,14 +111,14 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
         res, _, _ = await query_service.execute_query(db_session, ts_query)
     ############################################
     # let's build for efficiency a dictionary out of the list of resulting rows
-    ts_res = {elem["name"]: {"unit_of_measure":elem["unit_of_measure"],"value":elem["value"],"timestamp":elem["timestamp"]} for elem in res}
-    # let's check taht each target is present in the ts_res and has a valid value 
+    ts_res = {elem["name"]: {"unit_of_measure":elem["unit_of_measure"],"value":round(float(elem["value"]),2),"timestamp":elem["timestamp"].strftime('%Y-%m-%d %H:%M')} for elem in res}
+            # let's check taht each target is present in the ts_res and has a valid value 
     # now we can populate the calc_engine_request with the Timescale values
     # first let's fill the targets
     for target in calc_engine_request.targets:
         target.current_value = ts_res[target.name_id]["value"]
         target.unit_of_measurement = ts_res[target.name_id]["unit_of_measure"]
-        target.time_stamp = str(ts_res[target.name_id]["timestamp"])
+        target.timestamp = str(ts_res[target.name_id]["timestamp"])
     # now let's fill the pairs
     for pair in calc_engine_request.pairs:
         #from
