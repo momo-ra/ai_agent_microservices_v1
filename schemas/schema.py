@@ -257,7 +257,7 @@ class RecommendationPairElemSchema(RecommendationEntitySchema):
     mv_weight: Optional[RecommendationEntitySchema]=None
     low_limits: Optional[List[RecommendationLimitEntitySchema]]=None
     high_limits: Optional[List[RecommendationLimitEntitySchema]]=None
-    variable_type:str
+    variable_type: Optional[str] = None
     unitary_price: Optional[RecommendationEntitySchema] = None
     final_value: Optional[float] = None
     timestamp: Optional[str] = None
