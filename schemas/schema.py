@@ -11,6 +11,16 @@ class ResponseModel(BaseModel, Generic[T]):
     message: Optional[str] = Field(None, description="Message accompanying the response")
     status_code: int = Field(..., description="HTTP status code of the response")
 
+class PaginatedResponseData(BaseModel, Generic[T]):
+    """Generic paginated data wrapper"""
+    items: List[T] = Field(..., description="List of items in current page")
+    total: int = Field(..., description="Total number of items across all pages")
+    skip: int = Field(..., description="Number of items skipped")
+    limit: int = Field(..., description="Maximum items per page")
+    has_more: bool = Field(..., description="Whether there are more items available")
+    page: int = Field(..., description="Current page number (1-indexed)")
+    total_pages: int = Field(..., description="Total number of pages")
+
 class AnswerType(str, Enum):
     """Enum for possible answer types"""
     ANSWER = "Answer"
@@ -261,10 +271,18 @@ class RecommendationPairElemSchema(RecommendationEntitySchema):
     mv_weight: Optional[RecommendationEntitySchema]=None
     low_limits: Optional[List[RecommendationLimitEntitySchema]]=None
     high_limits: Optional[List[RecommendationLimitEntitySchema]]=None
+    variable_type:str
+    unitary_price: Optional[RecommendationEntitySchema] = None
+    final_value: Optional[float] = None
+    timestamp: Optional[str] = None
 
     @field_validator("low_limits",mode="before")
     @staticmethod
-    def validate_low_limits(low_limits:Optional[List[RecommendationLimitEntitySchema]])->Optional[List[RecommendationLimitEntitySchema]]:
+    def validate_low_limits(low_limits:Optional[List[Dict]]=None)->Optional[List[RecommendationLimitEntitySchema]]:
+        if low_limits is None:
+            return None
+        if isinstance(low_limits, list) and isinstance(low_limits[0], RecommendationLimitEntitySchema):
+            return low_limits
         new_low_limits = []
         for limit in low_limits:
             if limit["name_id"] is not None:
@@ -272,10 +290,13 @@ class RecommendationPairElemSchema(RecommendationEntitySchema):
         if new_low_limits == []:
             return None
         return new_low_limits
-        
     @field_validator("high_limits",mode="before")
     @staticmethod
-    def validate_high_limits(high_limits:Optional[List[RecommendationLimitEntitySchema]])->Optional[List[RecommendationLimitEntitySchema]]:
+    def validate_high_limits(high_limits:Optional[List[Dict]]=None)->Optional[List[RecommendationLimitEntitySchema]]:
+        if high_limits is None:
+            return None
+        if isinstance(high_limits, list) and isinstance(high_limits[0], RecommendationLimitEntitySchema):
+            return high_limits
         new_high_limits = []
         for limit in high_limits:
             if limit["name_id"] is not None:

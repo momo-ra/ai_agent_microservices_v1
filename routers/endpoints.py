@@ -10,12 +10,13 @@ from schemas.schema import (
     ResponseModel, MessageRequest, ArtifactCreateSchema, ArtifactUpdateSchema,
     ChatSessionUpdateSchema, ChatMessageUpdateSchema, ChatSearchRequestSchema, RecentChatsRequestSchema,
     RecommendationCalculationEngineSchema, AdvisorNameIdsRequestSchema, AdvisorCalcRequestWithTargetsSchema,
-    ManualAiRequestSchema
+    ManualAiRequestSchema, PaginatedResponseData
 )
 from middlewares.auth_middleware import authenticate_user
 from middlewares.plant_access_middleware import validate_plant_access_middleware
 from utils.response import success_response, fail_response
 from utils.log import setup_logger
+from utils.pagination import get_pagination_params, PaginationParams, create_paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_plant_db_with_context
 
@@ -148,8 +149,7 @@ async def create_artifact(
 @router.get("/session/{session_id}/artifacts", response_model=ResponseModel)
 async def get_session_artifacts(
     session_id: str,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     artifact_service: ArtifactService = Depends(get_artifact_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -162,8 +162,8 @@ async def get_session_artifacts(
             session_id=session_id,
             user_id=auth_data.get("user_id"),
             auth_data=auth_data,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         
         if result is not None:
@@ -251,8 +251,7 @@ async def delete_artifact(
 async def search_artifacts(
     session_id: str,
     q: str,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     artifact_service: ArtifactService = Depends(get_artifact_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -266,8 +265,8 @@ async def search_artifacts(
             user_id=auth_data.get("user_id"),
             search_term=q,
             auth_data=auth_data,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         
         if artifacts is not None:
@@ -283,8 +282,7 @@ async def search_artifacts(
 
 @router.get("/user/artifacts", response_model=ResponseModel)
 async def get_all_user_artifacts(
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     artifact_service: ArtifactService = Depends(get_artifact_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -296,8 +294,8 @@ async def get_all_user_artifacts(
             db=db,
             user_id=auth_data.get("user_id"),
             auth_data=auth_data,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         
         if result:
@@ -310,8 +308,7 @@ async def get_all_user_artifacts(
 @router.get("/user/artifacts/type/{artifact_type}", response_model=ResponseModel)
 async def get_user_artifacts_by_type(
     artifact_type: str,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     artifact_service: ArtifactService = Depends(get_artifact_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -324,8 +321,8 @@ async def get_user_artifacts_by_type(
             user_id=auth_data.get("user_id"),
             artifact_type=artifact_type,
             auth_data=auth_data,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         
         if artifacts is not None:
@@ -338,8 +335,7 @@ async def get_user_artifacts_by_type(
 @router.get("/user/artifacts/search", response_model=ResponseModel)
 async def search_user_artifacts(
     q: str,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     artifact_service: ArtifactService = Depends(get_artifact_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -352,8 +348,8 @@ async def search_user_artifacts(
             user_id=auth_data.get("user_id"),
             search_term=q,
             auth_data=auth_data,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         
         if artifacts is not None:
@@ -369,8 +365,7 @@ async def search_user_artifacts(
 
 @router.get("/user/sessions", response_model=ResponseModel)
 async def get_all_user_sessions(
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     chat_service: ChatService = Depends(get_chat_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -381,15 +376,15 @@ async def get_all_user_sessions(
         sessions = await chat_service.get_user_sessions(
             db=db,
             user_id=auth_data.get("user_id"),
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         return success_response(
             data={
                 "sessions": sessions,
                 "total_count": len(sessions),
-                "skip": skip,
-                "limit": limit
+                "skip": pagination.skip,
+                "limit": pagination.limit
             },
             message="User sessions retrieved successfully"
         )
@@ -398,8 +393,7 @@ async def get_all_user_sessions(
 
 @router.get("/user/sessions/starred", response_model=ResponseModel)
 async def get_starred_sessions(
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     chat_service: ChatService = Depends(get_chat_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -410,15 +404,15 @@ async def get_starred_sessions(
         sessions = await chat_service.get_starred_sessions(
             db=db,
             user_id=auth_data.get("user_id"),
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         return success_response(
             data={
                 "sessions": sessions,
                 "total_count": len(sessions),
-                "skip": skip,
-                "limit": limit
+                "skip": pagination.skip,
+                "limit": pagination.limit
             },
             message="Starred sessions retrieved successfully"
         )
@@ -428,8 +422,7 @@ async def get_starred_sessions(
 @router.get("/user/sessions/recent", response_model=ResponseModel)
 async def get_recent_sessions(
     days: int = 7,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     chat_service: ChatService = Depends(get_chat_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -441,15 +434,15 @@ async def get_recent_sessions(
             db=db,
             user_id=auth_data.get("user_id"),
             days=days,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         return success_response(
             data={
                 "sessions": sessions,
                 "total_count": len(sessions),
-                "skip": skip,
-                "limit": limit,
+                "skip": pagination.skip,
+                "limit": pagination.limit,
                 "days": days
             },
             message="Recent sessions retrieved successfully"
@@ -460,8 +453,7 @@ async def get_recent_sessions(
 @router.get("/user/sessions/search", response_model=ResponseModel)
 async def search_sessions(
     q: str,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(get_pagination_params),
     chat_service: ChatService = Depends(get_chat_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
@@ -473,15 +465,15 @@ async def search_sessions(
             db=db,
             user_id=auth_data.get("user_id"),
             search_term=q,
-            skip=skip,
-            limit=limit
+            skip=pagination.skip,
+            limit=pagination.limit
         )
         return success_response(
             data={
                 "sessions": sessions,
                 "total_count": len(sessions),
-                "skip": skip,
-                "limit": limit,
+                "skip": pagination.skip,
+                "limit": pagination.limit,
                 "search_term": q
             },
             message="Search completed successfully"
