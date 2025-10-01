@@ -260,7 +260,7 @@ class RecommendationEntitySchema(BaseModel):
 
 class RecommendationTargetEntitySchema(RecommendationEntitySchema):
     target_value: Optional[float] = None
-    time_stamp: Optional[str] = None
+    timestamp: Optional[str] = None
 
 class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
@@ -316,7 +316,7 @@ class RecommendationCalculationEngineSchema(BaseModel):
     "schema of the input to the API call of the recommendation calculation engine"
     pairs: List[RecommendationCalculationEnginePairSchema]
     targets: List[RecommendationTargetEntitySchema]
-    # label: Literal["recommendations","what_if"]
+    label:str = Field(default="recommendations")
 
 class AdvisorCompleteRequestSchema(BaseModel):
     """Complete schema for advisor request - frontend sends full calculation engine data"""
