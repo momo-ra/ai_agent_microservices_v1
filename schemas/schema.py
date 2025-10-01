@@ -70,20 +70,6 @@ class TsQuerySchema(BaseModel):
     grouping_function: Optional[GroupingFunction] = None
     plot_type: Optional[PlotType] = None
 
-class ShortcutQuestion(BaseModel):
-    """Schema for shortcut questions to AI"""
-    data: Union[List[EntitySchema], TsQuerySchema, 'RecommendationCalculationEngineSchema']
-    label: QuestionType
-    
-    @field_validator("data", mode="after")
-    @classmethod
-    def validate_data(cls, v, info):
-        label = info.data.get("label")
-        if (label == QuestionType.VIEW and not isinstance(v, TsQuerySchema)) or \
-           (label == QuestionType.EXPLORE and not isinstance(v, list)) or \
-           (label == QuestionType.ADVICE and not isinstance(v, RecommendationCalculationEngineSchema)):
-            raise ValueError(f"Invalid data type for {label}")
-        return v
 
 # be aware that the ai responses with List of this schema.
 class AiResponseSchema(BaseModel):
@@ -348,13 +334,15 @@ class AdvisorCalcRequestWithTargetsSchema(BaseModel):
 
 class ManualAiRequestSchema(BaseModel):
     """Schema for manual AI requests with different question types"""
-    question_type: QuestionType = Field(..., description="Type of question to ask AI")
+    data: Union[List[EntitySchema], TsQuerySchema, 'RecommendationCalculationEngineSchema']
+    label: QuestionType = Field(..., alias="question_type", description="Type of question to ask AI")
     
-    # For explore type - use EntitySchema
-    entity_data: Optional[List[EntitySchema]] = Field(None, description="Entity data for explore type")
-    
-    # For view type - use TsQuerySchema
-    ts_query_data: Optional[TsQuerySchema] = Field(None, description="Time series query data for view type")
-    
-    # For advice type - use the complete request schema
-    advice_data: Optional[AdvisorCompleteRequestSchema] = Field(None, description="Advice data for advice type")
+    @field_validator("data", mode="after")
+    @classmethod
+    def validate_data(cls, v, info):
+        label = info.data.get("label")
+        if (label == QuestionType.VIEW and not isinstance(v, TsQuerySchema)) or \
+           (label == QuestionType.EXPLORE and not isinstance(v, list)) or \
+           (label == QuestionType.ADVICE and not isinstance(v, RecommendationCalculationEngineSchema)):
+            raise ValueError(f"Invalid data type for {label}")
+        return v

@@ -270,57 +270,25 @@ class AdvisorService:
         try:
             self.logger.info('Sending manual AI request')
             
-            # Step 1: Prepare the request data based on question type
+            # Step 1: Prepare the request data
             ai_request_data = {
-                "question_type": manual_request.question_type.value,
+                "data": manual_request.data.dict() if hasattr(manual_request.data, 'dict') else manual_request.data,
+                "label": manual_request.label.value,
                 "plant_id": plant_id
             }
             
-            # Add specific data based on question type
-            if manual_request.question_type == QuestionType.EXPLORE:
-                if manual_request.entity_data:
-                    ai_request_data["data"] = [entity.dict() for entity in manual_request.entity_data]
+            # Convert data to proper format based on type
+            if manual_request.label == QuestionType.EXPLORE:
+                # For explore type, data should be a list of entities
+                ai_request_data["data"] = [entity.dict() for entity in manual_request.data]
                 
-            elif manual_request.question_type == QuestionType.VIEW:
-                if manual_request.ts_query_data:
-                    ai_request_data["data"] = manual_request.ts_query_data.dict()
+            elif manual_request.label == QuestionType.VIEW:
+                # For view type, data should be TsQuerySchema dict
+                ai_request_data["data"] = manual_request.data.dict()
                 
-            elif manual_request.question_type == QuestionType.ADVICE:
-                # For advice type, use the complete advice data
-                if manual_request.advice_data:
-                    # Create the RecommendationCalculationEngineSchema from the advisor data
-                    from schemas.schema import RecommendationCalculationEngineSchema, RecommendationCalculationEnginePairSchema
-                    
-                    # Build pairs from dependent and independent variables
-                    pairs = []
-                    if manual_request.advice_data.dependent_variables and manual_request.advice_data.independent_variables:
-                        for dep_var in manual_request.advice_data.dependent_variables:
-                            for ind_var in manual_request.advice_data.independent_variables:
-                                relationship = {
-                                    "type": "affects",
-                                    "gain": 1.0,
-                                    "gain_unit": None
-                                }
-                                
-                                pair_data = {
-                                    "relationship": relationship,
-                                    "from": ind_var.dict(),
-                                    "to": dep_var.dict()
-                                }
-                                
-                                pair = RecommendationCalculationEnginePairSchema(**pair_data)
-                                pairs.append(pair)
-                    
-                    # Create the full calculation request
-                    calc_request = RecommendationCalculationEngineSchema(
-                        pairs=pairs,
-                        targets=manual_request.advice_data.targets
-                    )
-                    
-                    # Apply target values
-                    finish_calc_engine_request(manual_request.advice_data.target_values, calc_request)
-                    
-                    ai_request_data["data"] = calc_request.dict()
+            elif manual_request.label == QuestionType.ADVICE:
+                # For advice type, data should be RecommendationCalculationEngineSchema dict
+                ai_request_data["data"] = manual_request.data.dict()
             
             # Step 2: Call the AI service first
             starttime = datetime.now()
