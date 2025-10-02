@@ -248,6 +248,12 @@ class RecommendationTargetEntitySchema(RecommendationEntitySchema):
     target_value: Optional[float] = None
     timestamp: Optional[str] = None
 
+class TargetUpdateSchema(BaseModel):
+    """Schema for target updates with new values"""
+    name_id: str
+    current_value: Optional[float] = None
+    new_value: float
+
 class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
     parameter_source: Optional[str] = Field(None, alias="source")
@@ -314,7 +320,6 @@ class AdvisorCompleteRequestSchema(BaseModel):
     independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
     targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
-    pairs: Optional[List[RecommendationCalculationEnginePairSchema]] = Field(None, description="Original pairs from Neo4j (relationships between variables)")
 
 # =============================================================================
 # ADVISOR ENDPOINT SCHEMAS
@@ -329,7 +334,6 @@ class AdvisorCalcEngineResultSchema(BaseModel):
     dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables")
     independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables")
     targets: List[RecommendationTargetEntitySchema] = Field(..., description="Targets")
-    pairs: List[RecommendationCalculationEnginePairSchema] = Field(..., description="Original pairs from Neo4j with relationships")
 
 class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     """Schema for advisor calculation request with target values"""
@@ -337,13 +341,20 @@ class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
 
 
+class AdvisorSimpleRequestSchema(BaseModel):
+    """Schema for simple advisor request with only modified_limits and targets"""
+    modified_limits: Dict[str, float] = Field(..., description="Modified limits to update in pairs")
+    targets: List[TargetUpdateSchema] = Field(..., description="Targets with new values to update")
+
 
 class ManualAiRequestSchema(BaseModel):
     """Schema for manual AI requests with different question types"""
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "use_enum_values": False}
     
-    data: Union[List[EntitySchema], TsQuerySchema, RecommendationCalculationEngineSchema]
+    data: Optional[Union[List[EntitySchema], TsQuerySchema, RecommendationCalculationEngineSchema, AdvisorSimpleRequestSchema]] = None
     label: QuestionType = Field(..., alias="question_type", description="Type of question to ask AI")
+    # modified_limits: Optional[Dict[str, float]] = Field(None, description="Modified limits to update in pairs (for simple format)")
+    # targets: Optional[List[TargetUpdateSchema]] = Field(None, description="Targets with new values (for simple format)")
     
     @model_validator(mode="before")
     @classmethod
@@ -351,15 +362,30 @@ class ManualAiRequestSchema(BaseModel):
         if isinstance(values, dict):
             question_type = values.get("question_type")
             data = values.get("data")
+            modified_limits = values.get("modified_limits")
+            targets = values.get("targets")
             
-            if question_type == QuestionType.VIEW:
-                if data and isinstance(data, dict):
-                    values["data"] = TsQuerySchema(**data)
-            elif question_type == QuestionType.EXPLORE:
-                if data and isinstance(data, list):
-                    values["data"] = [EntitySchema(**item) for item in data]
-            elif question_type == QuestionType.ADVICE:
-                if data and isinstance(data, dict):
-                    values["data"] = RecommendationCalculationEngineSchema(**data)
+            # Check if it's the simple format (modified_limits + targets at root level)
+            if question_type == QuestionType.ADVICE and modified_limits and targets and not data:
+                # Build AdvisorSimpleRequestSchema from root level fields
+                values["data"] = AdvisorSimpleRequestSchema(
+                    modified_limits=modified_limits,
+                    targets=targets
+                )
+            elif data:
+                # Original format with data field
+                if question_type == QuestionType.VIEW:
+                    if isinstance(data, dict):
+                        values["data"] = TsQuerySchema(**data)
+                elif question_type == QuestionType.EXPLORE:
+                    if isinstance(data, list):
+                        values["data"] = [EntitySchema(**item) for item in data]
+                elif question_type == QuestionType.ADVICE:
+                    if isinstance(data, dict):
+                        # Check if it's the simple format or full schema
+                        if "modified_limits" in data and "targets" in data and "pairs" not in data:
+                            values["data"] = AdvisorSimpleRequestSchema(**data)
+                        else:
+                            values["data"] = RecommendationCalculationEngineSchema(**data)
         
         return values

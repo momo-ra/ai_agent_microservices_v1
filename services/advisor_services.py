@@ -6,9 +6,10 @@ from queries.chat_message_queries import create_chat_message
 from schemas.schema import (
     AdvisorRequestSchema, AdvisorResponseSchema, AdvisorNameIdsRequestSchema,
     AdvisorCalcEngineResultSchema, AdvisorCalcRequestWithTargetsSchema,
-    AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType, AiResponseSchema
+    AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType, AiResponseSchema,
+    AdvisorSimpleRequestSchema, RecommendationCalculationEngineSchema
 )
-from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request, convert_advisor_complete_to_calc_engine
+from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request, update_pairs, build_recommendation_schema
 from services.artifact_service import ArtifactService
 from typing import Dict, Any, Optional, List, Tuple
 import json
@@ -20,7 +21,7 @@ from datetime import datetime
 
 load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/manual"
+AI_AGENT_URL = "https://b3d342e99269.ngrok-free.app/ai-agent/manual"
 
 logger = setup_logger(__name__)
 
@@ -209,15 +210,14 @@ class AdvisorService:
                 return None
             
             # Call the calculation engine service
-            targets, dependent_variables, independent_variables, pairs = await build_execute_recommendation_query(
+            targets, dependent_variables, independent_variables = await build_execute_recommendation_query(
                 name_ids, plant_id
             )
             
             result = AdvisorCalcEngineResultSchema(
                 dependent_variables=dependent_variables,
                 independent_variables=independent_variables,
-                targets=targets,
-                pairs=pairs
+                targets=targets
             )
             
             self.logger.success(f'Successfully got calc engine result for {len(name_ids)} name_ids')
@@ -277,7 +277,6 @@ class AdvisorService:
             ai_request_data = {
                 "data": manual_request.data.dict() if hasattr(manual_request.data, 'dict') else manual_request.data,
                 "question_type": manual_request.label.value,  # AI service expects "question_type" not "label"
-                "plant_id": plant_id
             }
             
             # Convert data to proper format based on type
@@ -290,12 +289,49 @@ class AdvisorService:
                 ai_request_data["data"] = manual_request.data.dict()
                 
             elif manual_request.label == QuestionType.ADVICE:
-                # For advice type, data should be RecommendationCalculationEngineSchema dict
-                # Use by_alias=True to send "from" and "to" instead of "from_" and "to_"
-                ai_request_data["data"] = manual_request.data.dict(by_alias=True)
+                # Check if it's the simple format (AdvisorSimpleRequestSchema)
+                if isinstance(manual_request.data, AdvisorSimpleRequestSchema):
+                    self.logger.info("🔄 Processing simple advisor request format")
+                    
+                    # Extract name_ids from targets
+                    name_ids = [target.name_id for target in manual_request.data.targets]
+                    self.logger.info(f"   📋 Extracted {len(name_ids)} name_ids from targets: {name_ids}")
+                    
+                    # Build complete recommendation schema with pairs and targets
+                    calc_engine_schema = await build_recommendation_schema(name_ids, plant_id)
+                    self.logger.info(f"   ✅ Built schema with {len(calc_engine_schema.pairs)} pairs")
+                    
+                    # Update pairs with modified_limits
+                    if manual_request.data.modified_limits and calc_engine_schema.pairs:
+                        self.logger.info(f"🔄 Updating pairs with modified_limits: {manual_request.data.modified_limits}")
+                        updated_pairs = update_pairs(manual_request.data.modified_limits, calc_engine_schema.pairs)
+                        calc_engine_schema.pairs = updated_pairs
+                    
+                    # Update targets with new_value (target_value)
+                    for target in calc_engine_schema.targets:
+                        for target_update in manual_request.data.targets:
+                            if target.name_id == target_update.name_id:
+                                target.target_value = target_update.new_value
+                                self.logger.info(f"   ✅ Updated target {target.name_id}: target_value = {target.target_value}")
+                    
+                    # Use the built schema
+                    ai_request_data["data"] = calc_engine_schema.dict(by_alias=True)
+                    
+                else:
+                    # Original format: RecommendationCalculationEngineSchema
+                    # If modified_limits are provided, update the pairs before sending to AI
+                    if manual_request.modified_limits and manual_request.data.pairs:
+                        self.logger.info(f"🔄 Updating pairs with modified_limits: {manual_request.modified_limits}")
+                        updated_pairs = update_pairs(manual_request.modified_limits, manual_request.data.pairs)
+                        manual_request.data.pairs = updated_pairs
+                    
+                    ai_request_data["data"] = manual_request.data.dict(by_alias=True)
             
             # Step 2: Call the AI service first
             starttime = datetime.now()
+            print("---------------------------------------------------")
+            print(ai_request_data)
+            print("---------------------------------------------------")
             ai_response = await self._get_ai_response(ai_request_data, plant_id)
             execution_time = (datetime.now() - starttime).total_seconds()
             
@@ -383,38 +419,4 @@ class AdvisorService:
             
         except Exception as e:
             self.logger.error(f'Error sending manual AI request: {e}')
-            raise e
-    
-    async def send_manual_ai_request_from_advisor_complete(
-        self, 
-        advisor_request: AdvisorCompleteRequestSchema,
-        db: AsyncSession,
-        user_id: int,
-        auth_data: Dict[str, Any],
-        plant_id: str = None
-    ) -> Optional[Dict[str, Any]]:
-        """Send manual AI request using AdvisorCompleteRequestSchema format (frontend format)"""
-        try:
-            self.logger.info('Converting AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema')
-            
-            # Convert the frontend format to the expected format
-            calc_engine_request = convert_advisor_complete_to_calc_engine(advisor_request)
-            
-            # Create a ManualAiRequestSchema with the converted data
-            manual_request = ManualAiRequestSchema(
-                data=calc_engine_request,
-                question_type=QuestionType.ADVICE
-            )
-            
-            # Use the existing send_manual_ai_request method
-            return await self.send_manual_ai_request(
-                manual_request=manual_request,
-                db=db,
-                user_id=user_id,
-                auth_data=auth_data,
-                plant_id=plant_id
-            )
-            
-        except Exception as e:
-            self.logger.error(f'Error sending manual AI request from advisor complete: {e}')
             raise e

@@ -1,9 +1,10 @@
-from schemas.schema import RecommendationCalculationEngineSchema, RecommendationPairElemSchema, RecommendationTargetEntitySchema, RecommendationEntitySchema, RecommendationLimitEntitySchema, AdvisorCompleteRequestSchema, RecommendationCalculationEnginePairSchema, RecommendationRelationshipSchema
+from schemas.schema import RecommendationCalculationEngineSchema, RecommendationPairElemSchema, RecommendationTargetEntitySchema, RecommendationEntitySchema, RecommendationLimitEntitySchema, RecommendationCalculationEnginePairSchema
 from typing import List, Tuple, Dict
 from queries.calculation_engine_queries import RECOMMENDATION_TEMPLATE
 from utils.log import setup_logger
 from services.query_service import KnowledgeGraph, QueryService
 from database import get_plant_db
+from pydantic import TypeAdapter
 
 logger = setup_logger(__name__)
 
@@ -51,10 +52,99 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
     return input.targets, dependent_variables_data, independent_variables_data
 
 
-async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationTargetEntitySchema], List[RecommendationPairElemSchema], List[RecommendationPairElemSchema], List[RecommendationCalculationEnginePairSchema]]:
+async def build_recommendation_schema(name_ids: List[str], plant_id: str) -> RecommendationCalculationEngineSchema:
+    """
+    Build complete RecommendationCalculationEngineSchema with pairs and targets.
+    This is useful for manual AI requests where we need the full schema.
+    """
+    query = RECOMMENDATION_TEMPLATE.format(name_ids=name_ids)
+    res = await execute_neo4j_query(query, plant_id)
+    
+    # Build targets
+    targets = [RecommendationTargetEntitySchema(name_id=name_id) for name_id in name_ids]
+    calc_engine_request = RecommendationCalculationEngineSchema(pairs=res, targets=targets, label="recommendations")
+    
+    # Populate with TimescaleDB values
+    ts_name_ids = set(name_ids)
+    for pair in calc_engine_request.pairs:
+        ts_name_ids.add(pair.from_.name_id)
+        for key in pair.from_.model_fields.keys():
+            field = getattr(pair.from_, key)
+            if isinstance(field, RecommendationEntitySchema):
+                ts_name_ids.add(field.name_id)
+            elif isinstance(field, list):
+                for elem in field:
+                    if isinstance(elem, RecommendationLimitEntitySchema):
+                        ts_name_ids.add(elem.name_id)
+        
+        ts_name_ids.add(pair.to_.name_id)
+        for key in pair.to_.model_fields.keys():
+            field = getattr(pair.to_, key)
+            if isinstance(field, RecommendationEntitySchema):
+                ts_name_ids.add(field.name_id)
+            elif isinstance(field, list):
+                for elem in field:
+                    if isinstance(elem, RecommendationLimitEntitySchema):
+                        ts_name_ids.add(elem.name_id)
+    
+    # Query TimescaleDB
+    ts_name_ids_str = ",".join(["'" + str(elem) + "'" for elem in ts_name_ids])
+    ts_name_ids_str = f"({ts_name_ids_str})"
+    ts_query = f"""
+    select distinct on(tags.name) tags.name, tags.unit_of_measure, ts.value, ts.timestamp
+    from time_series ts
+    inner join tags on ts.tag_id = tags.id
+    where tags.name in {ts_name_ids_str}
+    order by tags.name, ts.timestamp desc
+    """
+    
+    query_service = QueryService()
+    async for db_session in get_plant_db(plant_id):
+        res_ts, _, _ = await query_service.execute_query(db_session, ts_query)
+    
+    ts_res = {elem["name"]: {"unit_of_measure": elem["unit_of_measure"], "value": round(float(elem["value"]), 2), "timestamp": elem["timestamp"].strftime('%Y-%m-%d %H:%M')} for elem in res_ts}
+    
+    # Fill targets
+    for target in calc_engine_request.targets:
+        target.current_value = ts_res[target.name_id]["value"]
+        target.unit_of_measurement = ts_res[target.name_id]["unit_of_measure"]
+        target.timestamp = str(ts_res[target.name_id]["timestamp"])
+    
+    # Fill pairs
+    for pair in calc_engine_request.pairs:
+        pair.from_.current_value = ts_res[pair.from_.name_id]["value"]
+        pair.from_.unit_of_measurement = ts_res[pair.from_.name_id]["unit_of_measure"]
+        for key in pair.from_.model_fields.keys():
+            field = getattr(pair.from_, key)
+            if isinstance(field, RecommendationEntitySchema):
+                field.current_value = ts_res[field.name_id]["value"]
+                field.unit_of_measurement = ts_res[field.name_id]["unit_of_measure"]
+            elif isinstance(field, list):
+                for elem in field:
+                    if isinstance(elem, RecommendationLimitEntitySchema):
+                        elem.current_value = ts_res[elem.name_id]["value"]
+                        elem.unit_of_measurement = ts_res[elem.name_id]["unit_of_measure"]
+        
+        pair.to_.current_value = ts_res[pair.to_.name_id]["value"]
+        pair.to_.unit_of_measurement = ts_res[pair.to_.name_id]["unit_of_measure"]
+        for key in pair.to_.model_fields.keys():
+            field = getattr(pair.to_, key)
+            if isinstance(field, RecommendationEntitySchema):
+                field.current_value = ts_res[field.name_id]["value"]
+                field.unit_of_measurement = ts_res[field.name_id]["unit_of_measure"]
+            elif isinstance(field, list):
+                for elem in field:
+                    if isinstance(elem, RecommendationLimitEntitySchema):
+                        elem.current_value = ts_res[elem.name_id]["value"]
+                        elem.unit_of_measurement = ts_res[elem.name_id]["unit_of_measure"]
+    
+    logger.info(f"✅ Built recommendation schema with {len(calc_engine_request.pairs)} pairs and {len(calc_engine_request.targets)} targets")
+    return calc_engine_request
+
+
+async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationPairElemSchema], List[RecommendationPairElemSchema]]:
     """
     Build and execute the recommendation query
-    Returns: (targets, dependent_variables, independent_variables, pairs)
     """
     query = RECOMMENDATION_TEMPLATE.format(name_ids=name_ids)
     # let's execute the query
@@ -159,11 +249,10 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
         print(f"   - targets: {len(calc_engine_result[0]) if calc_engine_result[0] else 0}")
         print(f"   - dependent: {len(calc_engine_result[1]) if calc_engine_result[1] else 0}")
         print(f"   - independent: {len(calc_engine_result[2]) if calc_engine_result[2] else 0}")
-        # Return targets, dependent, independent, AND the original pairs
-        return calc_engine_result[0], calc_engine_result[1], calc_engine_result[2], calc_engine_request.pairs
+        return calc_engine_result
     else:
         print("❌ divide_dependent_independent returned invalid result")
-        return [], [], [], []
+        return input.targets, [], []
     ############################################
 
 async def execute_neo4j_query(query:str,plant_id:str)->List[dict]:
@@ -192,42 +281,44 @@ def finish_calc_engine_request(target_values:Dict[str,float],calc_engine_request
     pass
 
 
-def convert_advisor_complete_to_calc_engine(advisor_request: AdvisorCompleteRequestSchema) -> RecommendationCalculationEngineSchema:
+def update_pairs(
+    new_limits_value: Dict[str, float], 
+    pairs: List[RecommendationCalculationEnginePairSchema]
+) -> List[RecommendationCalculationEnginePairSchema]:
     """
-    Convert AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema.
+    Update pairs with new limits values.
     
-    IMPORTANT: This function requires the original 'pairs' from Neo4j to be included in the request.
-    The pairs contain the actual relationships (is_affected) between variables as stored in the Knowledge Graph.
-    Without the original pairs, we cannot reconstruct the correct relationships and gains.
+    Args:
+        new_limits_value: Dictionary mapping limit name_ids to their new values
+        pairs: List of pairs to update
+    
+    Returns:
+        Updated list of pairs
     """
+    logger.info(f"🔄 Updating pairs with {len(new_limits_value)} new limit values")
     
-    # Check if pairs are provided (REQUIRED)
-    if not advisor_request.pairs:
-        error_msg = (
-            "ERROR: 'pairs' field is required in AdvisorCompleteRequestSchema. "
-            "The frontend must include the original pairs from the /advisor/calc-engine-result response. "
-            "These pairs contain the Neo4j relationships (is_affected) with correct gains and cannot be reconstructed."
-        )
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+    # Validate pairs using TypeAdapter
+    pairs = TypeAdapter(List[RecommendationCalculationEnginePairSchema]).validate_python(pairs)
     
-    # Use the original pairs from Neo4j
-    pairs = advisor_request.pairs
+    # Iterate through each pair
+    for pair in pairs:
+        # Get the from_ and to_ nodes
+        from_ = pair.from_
+        to_ = pair.to_
+        
+        # Collect all limits from both nodes
+        limits = [from_.high_limits, to_.high_limits, from_.low_limits, to_.low_limits]
+        
+        # Update each limit if its name_id is in new_limits_value
+        for limit_type in limits:
+            if limit_type is not None:
+                for limit in limit_type:
+                    if limit.name_id in new_limits_value:
+                        old_value = limit.current_value
+                        limit.current_value = new_limits_value[limit.name_id]
+                        logger.info(f"   ✅ Updated {limit.name_id}: {old_value} -> {limit.current_value}")
     
-    # Update target values in the targets if provided
-    if advisor_request.target_values:
-        for target in advisor_request.targets:
-            if target.name_id in advisor_request.target_values:
-                target.target_value = advisor_request.target_values[target.name_id]
-    
-    # Create the final schema
-    calc_engine_schema = RecommendationCalculationEngineSchema(
-        pairs=pairs,
-        targets=advisor_request.targets,
-        label="recommendations"
-    )
-    
-    logger.info(f"Converted AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema with {len(pairs)} pairs from Neo4j")
-    return calc_engine_schema
+    logger.info(f"✅ Pairs updated successfully")
+    return pairs
 
 
