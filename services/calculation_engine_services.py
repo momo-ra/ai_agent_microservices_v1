@@ -8,7 +8,7 @@ from pydantic import TypeAdapter
 
 logger = setup_logger(__name__)
 
-def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->Tuple[List[RecommendationTargetEntitySchema],List[RecommendationPairElemSchema],List[RecommendationPairElemSchema]]:
+def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->Tuple[List[RecommendationElementSchema],List[RecommendationElementSchema],List[RecommendationElementSchema]]:
     print(f"🔍 divide_dependent_independent called with:")
     print(f"   - pairs count: {len(input.pairs) if input.pairs else 0}")
     print(f"   - targets count: {len(input.targets) if input.targets else 0}")
@@ -17,9 +17,11 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
         print("⚠️ No pairs found, returning empty results")
         return input.targets, [], []
     
+    
     variables_name = []
     from_node_name = []
     independent_variables_name = []
+    target_variables_data = []
     targets_name_ids = [target.name_id for target in input.targets]
     for item in input.pairs:
         if item.from_.name_id not in variables_name:
@@ -37,19 +39,21 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
             independent_variables_data.append(item.to_)
     dependent_variables_name = []
     for item in variables_name:
-        if item not in independent_variables_name and item not in targets_name_ids and item not in dependent_variables_name:
-            dependent_variables_name.append(item)
+        if item not in independent_variables_name and item not in dependent_variables_name and item not in targets_name_ids:
+            dependent_variables_name.append(item)    
     dependent_variables_data = []
     for item in input.pairs:
         if item.from_.name_id in dependent_variables_name and item.from_ not in dependent_variables_data:
             dependent_variables_data.append(item.from_)
+        if item.from_.name_id in targets_name_ids and item.from_ not in target_variables_data:
+            target_variables_data.append(item.from_)
     
     print(f"🔍 divide_dependent_independent results:")
     print(f"   - targets: {len(input.targets)}")
     print(f"   - dependent_variables: {len(dependent_variables_data)}")
     print(f"   - independent_variables: {len(independent_variables_data)}")
     
-    return input.targets, dependent_variables_data, independent_variables_data
+    return target_variables_data, dependent_variables_data, independent_variables_data
 
 
 async def build_recommendation_schema(name_ids: List[str], plant_id: str) -> RecommendationCalculationEngineSchema:
@@ -156,7 +160,7 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
     ############################################
     # now we need to build the calc_engine API input schema with neo4j query result
     # the targets unit of measurement is the one provided by the user or the one registered in the tsdb.
-    targets = [RecommendationTargetEntitySchema(name_id=name_id) for name_id in name_ids]
+    targets = [RecommendationElementSchema(name_id=name_id) for name_id in name_ids]
     calc_engine_request = RecommendationCalculationEngineSchema(pairs=res,targets=targets,label="recommendations")
     # now we can populate te calc_engine_request with the Timescale values
     # let's search for each name_id contained in calc_engine_request
