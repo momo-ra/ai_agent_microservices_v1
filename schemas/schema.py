@@ -314,6 +314,7 @@ class AdvisorCompleteRequestSchema(BaseModel):
     independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
     targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
+    pairs: Optional[List[RecommendationCalculationEnginePairSchema]] = Field(None, description="Original pairs from Neo4j (relationships between variables)")
 
 # =============================================================================
 # ADVISOR ENDPOINT SCHEMAS
@@ -328,6 +329,7 @@ class AdvisorCalcEngineResultSchema(BaseModel):
     dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables")
     independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables")
     targets: List[RecommendationTargetEntitySchema] = Field(..., description="Targets")
+    pairs: List[RecommendationCalculationEnginePairSchema] = Field(..., description="Original pairs from Neo4j with relationships")
 
 class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     """Schema for advisor calculation request with target values"""

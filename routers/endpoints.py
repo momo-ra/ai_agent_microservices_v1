@@ -10,7 +10,7 @@ from schemas.schema import (
     ResponseModel, MessageRequest, ArtifactCreateSchema, ArtifactUpdateSchema,
     ChatSessionUpdateSchema, ChatMessageUpdateSchema, ChatSearchRequestSchema, RecentChatsRequestSchema,
     RecommendationCalculationEngineSchema, AdvisorNameIdsRequestSchema, AdvisorCalcRequestWithTargetsSchema,
-    ManualAiRequestSchema, PaginatedResponseData
+    ManualAiRequestSchema, PaginatedResponseData, AdvisorCompleteRequestSchema, QuestionType
 )
 from middlewares.auth_middleware import authenticate_user
 from middlewares.plant_access_middleware import validate_plant_access_middleware
@@ -647,21 +647,47 @@ async def get_advisor_calc_engine_result(
 
 @router.post("/ai/manual-request", response_model=ResponseModel)
 async def send_manual_ai_request(
-    request: ManualAiRequestSchema,
+    request: Dict[str, Any],
     advisor_service: AdvisorService = Depends(get_advisor_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
     plant_context: dict = Depends(validate_plant_access_middleware),
     db: AsyncSession = Depends(get_plant_db_with_context)
 ) -> Any:
-    """Send manual AI request with different question types"""
+    """
+    Send manual AI request with different question types.
+    
+    Supports two formats:
+    1. Standard format with 'data' and 'question_type' (ManualAiRequestSchema)
+    2. Advisor format with 'dependent_variables', 'independent_variables', 'targets', 'target_values', 'pairs' (AdvisorCompleteRequestSchema)
+    """
     try:
-        ai_response = await advisor_service.send_manual_ai_request(
-            request, 
-            db=db,
-            user_id=auth_data.get("user_id"),
-            auth_data=auth_data,
-            plant_id=plant_context["plant_id"]
-        )
+        # Check which format the request is in
+        is_advisor_format = all(key in request for key in ['dependent_variables', 'independent_variables', 'targets'])
+        
+        if is_advisor_format:
+            # Frontend is sending AdvisorCompleteRequestSchema format
+            logger.info("Received AdvisorCompleteRequestSchema format")
+            advisor_request = AdvisorCompleteRequestSchema(**request)
+            
+            ai_response = await advisor_service.send_manual_ai_request_from_advisor_complete(
+                advisor_request, 
+                db=db,
+                user_id=auth_data.get("user_id"),
+                auth_data=auth_data,
+                plant_id=plant_context["plant_id"]
+            )
+        else:
+            # Frontend is sending ManualAiRequestSchema format
+            logger.info("Received ManualAiRequestSchema format")
+            manual_request = ManualAiRequestSchema(**request)
+            
+            ai_response = await advisor_service.send_manual_ai_request(
+                manual_request, 
+                db=db,
+                user_id=auth_data.get("user_id"),
+                auth_data=auth_data,
+                plant_id=plant_context["plant_id"]
+            )
         
         if ai_response:
             return success_response(
@@ -671,5 +697,6 @@ async def send_manual_ai_request(
         else:
             return fail_response(message="Failed to get response from AI", status_code=500)
     except Exception as e:
+        logger.error(f"Error in manual AI request: {str(e)}")
         return fail_response(message=str(e), status_code=500)
 

@@ -8,7 +8,7 @@ from schemas.schema import (
     AdvisorCalcEngineResultSchema, AdvisorCalcRequestWithTargetsSchema,
     AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType, AiResponseSchema
 )
-from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request
+from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request, convert_advisor_complete_to_calc_engine
 from services.artifact_service import ArtifactService
 from typing import Dict, Any, Optional, List, Tuple
 import json
@@ -209,14 +209,15 @@ class AdvisorService:
                 return None
             
             # Call the calculation engine service
-            targets, dependent_variables, independent_variables = await build_execute_recommendation_query(
+            targets, dependent_variables, independent_variables, pairs = await build_execute_recommendation_query(
                 name_ids, plant_id
             )
             
             result = AdvisorCalcEngineResultSchema(
                 dependent_variables=dependent_variables,
                 independent_variables=independent_variables,
-                targets=targets
+                targets=targets,
+                pairs=pairs
             )
             
             self.logger.success(f'Successfully got calc engine result for {len(name_ids)} name_ids')
@@ -382,4 +383,38 @@ class AdvisorService:
             
         except Exception as e:
             self.logger.error(f'Error sending manual AI request: {e}')
+            raise e
+    
+    async def send_manual_ai_request_from_advisor_complete(
+        self, 
+        advisor_request: AdvisorCompleteRequestSchema,
+        db: AsyncSession,
+        user_id: int,
+        auth_data: Dict[str, Any],
+        plant_id: str = None
+    ) -> Optional[Dict[str, Any]]:
+        """Send manual AI request using AdvisorCompleteRequestSchema format (frontend format)"""
+        try:
+            self.logger.info('Converting AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema')
+            
+            # Convert the frontend format to the expected format
+            calc_engine_request = convert_advisor_complete_to_calc_engine(advisor_request)
+            
+            # Create a ManualAiRequestSchema with the converted data
+            manual_request = ManualAiRequestSchema(
+                data=calc_engine_request,
+                question_type=QuestionType.ADVICE
+            )
+            
+            # Use the existing send_manual_ai_request method
+            return await self.send_manual_ai_request(
+                manual_request=manual_request,
+                db=db,
+                user_id=user_id,
+                auth_data=auth_data,
+                plant_id=plant_id
+            )
+            
+        except Exception as e:
+            self.logger.error(f'Error sending manual AI request from advisor complete: {e}')
             raise e

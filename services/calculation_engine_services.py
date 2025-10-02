@@ -1,4 +1,4 @@
-from schemas.schema import RecommendationCalculationEngineSchema, RecommendationPairElemSchema, RecommendationTargetEntitySchema, RecommendationEntitySchema, RecommendationLimitEntitySchema
+from schemas.schema import RecommendationCalculationEngineSchema, RecommendationPairElemSchema, RecommendationTargetEntitySchema, RecommendationEntitySchema, RecommendationLimitEntitySchema, AdvisorCompleteRequestSchema, RecommendationCalculationEnginePairSchema, RecommendationRelationshipSchema
 from typing import List, Tuple, Dict
 from queries.calculation_engine_queries import RECOMMENDATION_TEMPLATE
 from utils.log import setup_logger
@@ -51,9 +51,10 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
     return input.targets, dependent_variables_data, independent_variables_data
 
 
-async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationPairElemSchema], List[RecommendationPairElemSchema]]:
+async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationTargetEntitySchema], List[RecommendationPairElemSchema], List[RecommendationPairElemSchema], List[RecommendationCalculationEnginePairSchema]]:
     """
     Build and execute the recommendation query
+    Returns: (targets, dependent_variables, independent_variables, pairs)
     """
     query = RECOMMENDATION_TEMPLATE.format(name_ids=name_ids)
     # let's execute the query
@@ -158,10 +159,11 @@ async def build_execute_recommendation_query(name_ids: List[str], plant_id: str)
         print(f"   - targets: {len(calc_engine_result[0]) if calc_engine_result[0] else 0}")
         print(f"   - dependent: {len(calc_engine_result[1]) if calc_engine_result[1] else 0}")
         print(f"   - independent: {len(calc_engine_result[2]) if calc_engine_result[2] else 0}")
-        return calc_engine_result
+        # Return targets, dependent, independent, AND the original pairs
+        return calc_engine_result[0], calc_engine_result[1], calc_engine_result[2], calc_engine_request.pairs
     else:
         print("❌ divide_dependent_independent returned invalid result")
-        return input.targets, [], []
+        return [], [], [], []
     ############################################
 
 async def execute_neo4j_query(query:str,plant_id:str)->List[dict]:
@@ -188,5 +190,44 @@ def finish_calc_engine_request(target_values:Dict[str,float],calc_engine_request
     # return calc_engine_request to the AI engine with a call to CHAT-LESS AI
     ############################################
     pass
+
+
+def convert_advisor_complete_to_calc_engine(advisor_request: AdvisorCompleteRequestSchema) -> RecommendationCalculationEngineSchema:
+    """
+    Convert AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema.
+    
+    IMPORTANT: This function requires the original 'pairs' from Neo4j to be included in the request.
+    The pairs contain the actual relationships (is_affected) between variables as stored in the Knowledge Graph.
+    Without the original pairs, we cannot reconstruct the correct relationships and gains.
+    """
+    
+    # Check if pairs are provided (REQUIRED)
+    if not advisor_request.pairs:
+        error_msg = (
+            "ERROR: 'pairs' field is required in AdvisorCompleteRequestSchema. "
+            "The frontend must include the original pairs from the /advisor/calc-engine-result response. "
+            "These pairs contain the Neo4j relationships (is_affected) with correct gains and cannot be reconstructed."
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    # Use the original pairs from Neo4j
+    pairs = advisor_request.pairs
+    
+    # Update target values in the targets if provided
+    if advisor_request.target_values:
+        for target in advisor_request.targets:
+            if target.name_id in advisor_request.target_values:
+                target.target_value = advisor_request.target_values[target.name_id]
+    
+    # Create the final schema
+    calc_engine_schema = RecommendationCalculationEngineSchema(
+        pairs=pairs,
+        targets=advisor_request.targets,
+        label="recommendations"
+    )
+    
+    logger.info(f"Converted AdvisorCompleteRequestSchema to RecommendationCalculationEngineSchema with {len(pairs)} pairs from Neo4j")
+    return calc_engine_schema
 
 
