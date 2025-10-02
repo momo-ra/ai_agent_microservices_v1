@@ -1,4 +1,4 @@
-from schemas.schema import RecommendationCalculationEngineSchema, RecommendationPairElemSchema, RecommendationTargetEntitySchema, RecommendationEntitySchema, RecommendationLimitEntitySchema, RecommendationCalculationEnginePairSchema
+from schemas.schema import RecommendationCalculationEngineSchema, RecommendationElementSchema, RecommendationEntitySchema, RecommendationLimitEntitySchema, RecommendationCalculationEnginePairSchema
 from typing import List, Tuple, Dict
 from queries.calculation_engine_queries import RECOMMENDATION_TEMPLATE
 from utils.log import setup_logger
@@ -65,7 +65,7 @@ async def build_recommendation_schema(name_ids: List[str], plant_id: str) -> Rec
     res = await execute_neo4j_query(query, plant_id)
     
     # Build targets
-    targets = [RecommendationTargetEntitySchema(name_id=name_id) for name_id in name_ids]
+    targets = [RecommendationElementSchema(name_id=name_id) for name_id in name_ids]
     calc_engine_request = RecommendationCalculationEngineSchema(pairs=res, targets=targets, label="recommendations")
     
     # Populate with TimescaleDB values
@@ -146,7 +146,7 @@ async def build_recommendation_schema(name_ids: List[str], plant_id: str) -> Rec
     return calc_engine_request
 
 
-async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationPairElemSchema], List[RecommendationPairElemSchema]]:
+async def build_execute_recommendation_query(name_ids: List[str], plant_id: str) -> Tuple[List[RecommendationElementSchema], List[RecommendationElementSchema]]:
     """
     Build and execute the recommendation query
     """

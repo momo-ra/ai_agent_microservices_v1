@@ -249,6 +249,12 @@ class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
     parameter_source: Optional[str] = Field(None, alias="source")
 
+class TargetUpdateSchema(BaseModel):
+    """Schema for target updates with new values"""
+    name_id: str
+    current_value: Optional[float] = None
+    new_value: float
+
 class RecommendationElementSchema(RecommendationEntitySchema):
     slack_weight: Optional[RecommendationEntitySchema] =None
     mv_weight: Optional[RecommendationEntitySchema]=None
