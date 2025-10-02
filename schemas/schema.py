@@ -244,22 +244,19 @@ class RecommendationEntitySchema(BaseModel):
     name_id:str
     current_value: Optional[float]=None
 
-class RecommendationTargetEntitySchema(RecommendationEntitySchema):
-    target_value: Optional[float] = None
-    timestamp: Optional[str] = None
 
 class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
     parameter_source: Optional[str] = Field(None, alias="source")
 
-class RecommendationPairElemSchema(RecommendationEntitySchema):
+class RecommendationElementSchema(RecommendationEntitySchema):
     slack_weight: Optional[RecommendationEntitySchema] =None
     mv_weight: Optional[RecommendationEntitySchema]=None
     low_limits: Optional[List[RecommendationLimitEntitySchema]]=None
     high_limits: Optional[List[RecommendationLimitEntitySchema]]=None
     variable_type: Optional[str] = None
     unitary_price: Optional[RecommendationEntitySchema] = None
-    final_value: Optional[float] = None
+    target_value: Optional[float] = None
     timestamp: Optional[str] = None
 
     @field_validator("low_limits",mode="before")
@@ -297,22 +294,22 @@ class RecommendationCalculationEnginePairSchema(BaseModel):
     model_config = {"populate_by_name": True}
     
     relationship: RecommendationRelationshipSchema
-    from_: RecommendationPairElemSchema = Field(...,alias="from")
-    to_: RecommendationPairElemSchema = Field(...,alias="to")
+    from_: RecommendationElementSchema   = Field(...,alias="from")
+    to_: RecommendationElementSchema = Field(...,alias="to")
 
 class RecommendationCalculationEngineSchema(BaseModel):
     "schema of the input to the API call of the recommendation calculation engine"
     model_config = {"populate_by_name": True}
     
     pairs: List[RecommendationCalculationEnginePairSchema]
-    targets: List[RecommendationTargetEntitySchema]
+    targets: List[RecommendationElementSchema]
     label:str = Field(default="recommendations")
 
 class AdvisorCompleteRequestSchema(BaseModel):
     """Complete schema for advisor request - frontend sends full calculation engine data"""
-    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables from calculation engine")
-    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables from calculation engine")
-    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Target variables from calculation engine")
+    dependent_variables: List[RecommendationElementSchema] = Field(..., description="Dependent variables from calculation engine")
+    independent_variables: List[RecommendationElementSchema] = Field(..., description="Independent variables from calculation engine")
+    targets: List[RecommendationElementSchema] = Field(..., description="Target variables from calculation engine")
     target_values: Dict[str, float] = Field(..., description="Target values for each variable")
     pairs: Optional[List[RecommendationCalculationEnginePairSchema]] = Field(None, description="Original pairs from Neo4j (relationships between variables)")
 
@@ -326,9 +323,9 @@ class AdvisorNameIdsRequestSchema(BaseModel):
 
 class AdvisorCalcEngineResultSchema(BaseModel):
     """Schema for advisor calculation engine result"""
-    dependent_variables: List[RecommendationPairElemSchema] = Field(..., description="Dependent variables")
-    independent_variables: List[RecommendationPairElemSchema] = Field(..., description="Independent variables")
-    targets: List[RecommendationTargetEntitySchema] = Field(..., description="Targets")
+    dependent_variables: List[RecommendationElementSchema] = Field(..., description="Dependent variables")
+    independent_variables: List[RecommendationElementSchema] = Field(..., description="Independent variables")
+    targets: List[RecommendationElementSchema] = Field(..., description="Targets")
     pairs: List[RecommendationCalculationEnginePairSchema] = Field(..., description="Original pairs from Neo4j with relationships")
 
 class AdvisorCalcRequestWithTargetsSchema(BaseModel):
