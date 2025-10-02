@@ -20,7 +20,7 @@ from datetime import datetime
 
 load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/chat"
+AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/manual"
 
 logger = setup_logger(__name__)
 
@@ -251,7 +251,9 @@ class AdvisorService:
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    raise ValueError(f"AI service returned status: {response.status_code}")
+                    error_detail = response.text
+                    self.logger.error(f"AI service error response: {error_detail}")
+                    raise ValueError(f"AI service returned status: {response.status_code}, error: {error_detail}")
                 
         except Exception as e:
             self.logger.error(f'Failed to get AI response: {str(e)}')
@@ -273,7 +275,7 @@ class AdvisorService:
             # Step 1: Prepare the request data
             ai_request_data = {
                 "data": manual_request.data.dict() if hasattr(manual_request.data, 'dict') else manual_request.data,
-                "label": manual_request.label.value,
+                "question_type": manual_request.label.value,  # AI service expects "question_type" not "label"
                 "plant_id": plant_id
             }
             
@@ -288,7 +290,8 @@ class AdvisorService:
                 
             elif manual_request.label == QuestionType.ADVICE:
                 # For advice type, data should be RecommendationCalculationEngineSchema dict
-                ai_request_data["data"] = manual_request.data.dict()
+                # Use by_alias=True to send "from" and "to" instead of "from_" and "to_"
+                ai_request_data["data"] = manual_request.data.dict(by_alias=True)
             
             # Step 2: Call the AI service first
             starttime = datetime.now()
@@ -308,7 +311,7 @@ class AdvisorService:
                     self.logger.success(f'Session created: {session_id}')
                     
                     # Create a dummy message in the session
-                    dummy_message = f"Manual AI request: {manual_request.question_type.value}"
+                    dummy_message = f"Manual AI request: {manual_request.label.value}"
                     
                     # Create chat message record
                     json_response = json.dumps(ai_response)

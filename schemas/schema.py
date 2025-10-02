@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from enum import Enum
 from typing import List, TypeVar, Optional, Generic, Dict, Any, Literal, Union
 
@@ -250,7 +250,7 @@ class RecommendationTargetEntitySchema(RecommendationEntitySchema):
 
 class RecommendationLimitEntitySchema(RecommendationEntitySchema):
     priority: Optional[str]=None
-    parameter_source: Optional[str]=None
+    parameter_source: Optional[str] = Field(None, alias="source")
 
 class RecommendationPairElemSchema(RecommendationEntitySchema):
     slack_weight: Optional[RecommendationEntitySchema] =None
@@ -294,12 +294,16 @@ class RecommendationPairElemSchema(RecommendationEntitySchema):
 class RecommendationCalculationEnginePairSchema(BaseModel):
     "schema of each Pair element, out from the neo4j query"
     "from is folloowed by _ because it's a reserved word"
+    model_config = {"populate_by_name": True}
+    
     relationship: RecommendationRelationshipSchema
     from_: RecommendationPairElemSchema = Field(...,alias="from")
     to_: RecommendationPairElemSchema = Field(...,alias="to")
 
 class RecommendationCalculationEngineSchema(BaseModel):
     "schema of the input to the API call of the recommendation calculation engine"
+    model_config = {"populate_by_name": True}
+    
     pairs: List[RecommendationCalculationEnginePairSchema]
     targets: List[RecommendationTargetEntitySchema]
     label:str = Field(default="recommendations")
@@ -334,15 +338,26 @@ class AdvisorCalcRequestWithTargetsSchema(BaseModel):
 
 class ManualAiRequestSchema(BaseModel):
     """Schema for manual AI requests with different question types"""
-    data: Union[List[EntitySchema], TsQuerySchema, 'RecommendationCalculationEngineSchema']
+    model_config = {"populate_by_name": True}
+    
+    data: Union[List[EntitySchema], TsQuerySchema, RecommendationCalculationEngineSchema]
     label: QuestionType = Field(..., alias="question_type", description="Type of question to ask AI")
     
-    @field_validator("data", mode="after")
+    @model_validator(mode="before")
     @classmethod
-    def validate_data(cls, v, info):
-        label = info.data.get("label")
-        if (label == QuestionType.VIEW and not isinstance(v, TsQuerySchema)) or \
-           (label == QuestionType.EXPLORE and not isinstance(v, list)) or \
-           (label == QuestionType.ADVICE and not isinstance(v, RecommendationCalculationEngineSchema)):
-            raise ValueError(f"Invalid data type for {label}")
-        return v
+    def validate_data_based_on_question_type(cls, values):
+        if isinstance(values, dict):
+            question_type = values.get("question_type")
+            data = values.get("data")
+            
+            if question_type == QuestionType.VIEW:
+                if data and isinstance(data, dict):
+                    values["data"] = TsQuerySchema(**data)
+            elif question_type == QuestionType.EXPLORE:
+                if data and isinstance(data, list):
+                    values["data"] = [EntitySchema(**item) for item in data]
+            elif question_type == QuestionType.ADVICE:
+                if data and isinstance(data, dict):
+                    values["data"] = RecommendationCalculationEngineSchema(**data)
+        
+        return values
