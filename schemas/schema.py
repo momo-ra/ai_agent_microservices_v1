@@ -258,7 +258,7 @@ class RecommendationElementSchema(RecommendationEntitySchema):
     unitary_price: Optional[RecommendationEntitySchema] = None
     target_value: Optional[float] = None
     timestamp: Optional[str] = None
-    calculated_value: Optional[float] = None
+    simulated_value: Optional[float] = None
 
     @field_validator("low_limits",mode="before")
     @staticmethod
