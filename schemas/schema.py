@@ -332,7 +332,6 @@ class AdvisorCalcEngineResultSchema(BaseModel):
     dependent_variables: List[RecommendationElementSchema] = Field(..., description="Dependent variables")
     independent_variables: List[RecommendationElementSchema] = Field(..., description="Independent variables")
     targets: List[RecommendationElementSchema] = Field(..., description="Targets")
-    pairs: List[RecommendationCalculationEnginePairSchema] = Field(..., description="Original pairs from Neo4j with relationships")
 
 class AdvisorCalcRequestWithTargetsSchema(BaseModel):
     """Schema for advisor calculation request with target values"""

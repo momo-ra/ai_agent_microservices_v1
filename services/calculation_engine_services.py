@@ -9,15 +9,9 @@ from pydantic import TypeAdapter
 logger = setup_logger(__name__)
 
 def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->Tuple[List[RecommendationElementSchema],List[RecommendationElementSchema],List[RecommendationElementSchema]]:
-    print(f"🔍 divide_dependent_independent called with:")
-    print(f"   - pairs count: {len(input.pairs) if input.pairs else 0}")
-    print(f"   - targets count: {len(input.targets) if input.targets else 0}")
-    
     if not input.pairs:
-        print("⚠️ No pairs found, returning empty results")
+        logger.debug_high_level(":warning: No pairs found, returning empty results")
         return input.targets, [], []
-    
-    
     variables_name = []
     from_node_name = []
     independent_variables_name = []
@@ -31,30 +25,25 @@ def divide_dependent_independent(input:RecommendationCalculationEngineSchema)->T
         if item.from_.name_id not in from_node_name:
             from_node_name.append(item.from_.name_id)
     for item in variables_name:
-        if item not in from_node_name and item not in independent_variables_name:  #SO, IF IT DOESN'T APPEAR IN THE FROM DICTIONARY, SO IT'S NOT AFFECTED FROM NOTHING
+        if item not in from_node_name and item not in independent_variables_name and item not in targets_name_ids:  #SO, IF IT DOESN'T APPEAR IN THE FROM DICTIONARY, SO IT'S NOT AFFECTED FROM NOTHING
             independent_variables_name.append(item)
     independent_variables_data = []
     for item in input.pairs:
         if item.to_.name_id in independent_variables_name and item.to_ not in independent_variables_data:
             independent_variables_data.append(item.to_)
+        if item.to_.name_id in targets_name_ids and item.to_ not in target_variables_data:
+            target_variables_data.append(item.to_)
     dependent_variables_name = []
     for item in variables_name:
         if item not in independent_variables_name and item not in dependent_variables_name and item not in targets_name_ids:
-            dependent_variables_name.append(item)    
+            dependent_variables_name.append(item)
     dependent_variables_data = []
     for item in input.pairs:
         if item.from_.name_id in dependent_variables_name and item.from_ not in dependent_variables_data:
             dependent_variables_data.append(item.from_)
         if item.from_.name_id in targets_name_ids and item.from_ not in target_variables_data:
             target_variables_data.append(item.from_)
-    
-    print(f"🔍 divide_dependent_independent results:")
-    print(f"   - targets: {len(input.targets)}")
-    print(f"   - dependent_variables: {len(dependent_variables_data)}")
-    print(f"   - independent_variables: {len(independent_variables_data)}")
-    
     return target_variables_data, dependent_variables_data, independent_variables_data
-
 
 async def build_recommendation_schema(name_ids: List[str], plant_id: str) -> RecommendationCalculationEngineSchema:
     """

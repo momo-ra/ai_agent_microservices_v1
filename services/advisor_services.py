@@ -21,7 +21,7 @@ from datetime import datetime
 
 load_dotenv('.env', override=True)
 
-AI_AGENT_URL = "https://b3d342e99269.ngrok-free.app/ai-agent/manual"
+AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/manual"
 
 logger = setup_logger(__name__)
 
