@@ -329,10 +329,6 @@ class AdvisorService:
             
             # Step 2: Call the AI service first
             starttime = datetime.now()
-            print("---------------------------------------------------")
-            
-            open("ai_request_data.json", "w").write(json.dumps(ai_request_data))
-            print("---------------------------------------------------")
             ai_response = await self._get_ai_response(ai_request_data, plant_id)
             execution_time = (datetime.now() - starttime).total_seconds()
             
