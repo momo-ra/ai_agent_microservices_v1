@@ -40,21 +40,22 @@ async def create_chat_message(db: AsyncSession, session_id: str, user_id: int, m
         Serialized message object
     """
     try:
-        async with db.begin():
-            chat_message = ChatMessage(
-                session_id=session_id,
-                user_id=user_id,
-                message=message,
-                query=query,
-                execution_time=execution_time,
-                response=response
-            )
-            db.add(chat_message)
-            await db.commit()
-            logger.success(f'Chat message created for session: {session_id}')
-            return message_serializer(chat_message)
+        chat_message = ChatMessage(
+            session_id=session_id,
+            user_id=user_id,
+            message=message,
+            query=query,
+            execution_time=execution_time,
+            response=response
+        )
+        db.add(chat_message)
+        await db.commit()
+        await db.refresh(chat_message)
+        logger.success(f'Chat message created for session: {session_id}')
+        return message_serializer(chat_message)
     except Exception as e:
         logger.error(f'Error creating chat message: {e}')
+        await db.rollback()
         raise e
 
 async def get_session_messages(db: AsyncSession, session_id: str) -> List[ChatMessage]:

@@ -8,14 +8,15 @@ logger = setup_logger(__name__)
 
 async def create_chat_session(db: AsyncSession, session_id: str, user_id: int):
     try:
-        async with db.begin():
-            chat_session = ChatSession(session_id=session_id, user_id=user_id)
-            db.add(chat_session)
-            await db.commit()
-            logger.info(f'Chat session created with session_id: {session_id}')
-            return session_id
+        chat_session = ChatSession(session_id=session_id, user_id=user_id)
+        db.add(chat_session)
+        await db.commit()
+        await db.refresh(chat_session)
+        logger.info(f'Chat session created with session_id: {session_id}')
+        return session_id
     except Exception as e:
         logger.error(f'Error creating chat session: {e}')
+        await db.rollback()
         raise  # Raise the exception after logging
 
 async def get_chat_session(db: AsyncSession, session_id: str):
