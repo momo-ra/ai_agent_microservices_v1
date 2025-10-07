@@ -156,6 +156,7 @@ class ArtifactUpdateSchema(BaseModel):
     content: Optional[str] = Field(None, description="Updated content")
     artifact_metadata: Optional[Dict[str, Any]] = Field(None, description="Updated metadata")
     is_active: Optional[bool] = Field(None, description="Active status")
+    message_id: Optional[int] = Field(None, description="Updated message ID")
 
 class ArtifactListResponseSchema(BaseModel):
     """Schema for listing artifacts"""
@@ -351,6 +352,7 @@ class ManualAiRequestSchema(BaseModel):
     
     data: Optional[Union[List[EntitySchema], TsQuerySchema, RecommendationCalculationEngineSchema, AdvisorSimpleRequestSchema]] = None
     label: QuestionType = Field(..., alias="question_type", description="Type of question to ask AI")
+    session_id: Optional[str] = Field(None, description="Optional session ID to use existing session and update its artifact")
     # modified_limits: Optional[Dict[str, float]] = Field(None, description="Modified limits to update in pairs (for simple format)")
     # targets: Optional[List[TargetUpdateSchema]] = Field(None, description="Targets with new values (for simple format)")
     

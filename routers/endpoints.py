@@ -625,13 +625,16 @@ async def get_advisor_calc_engine_result(
     request: AdvisorNameIdsRequestSchema,
     advisor_service: AdvisorService = Depends(get_advisor_service),
     auth_data: Dict[str, Any] = Depends(authenticate_user),
-    plant_context: dict = Depends(validate_plant_access_middleware)
+    plant_context: dict = Depends(validate_plant_access_middleware),
+    db: AsyncSession = Depends(get_plant_db_with_context)
 ) -> Any:
-    """Get calculation engine result from name_ids"""
+    """Get calculation engine result from name_ids and create session with artifact"""
     try:
-        result = await advisor_service.get_calc_engine_result(
+        result = await advisor_service.get_calc_engine_result_with_session(
             name_ids=request.name_ids,
-            plant_id=plant_context["plant_id"]
+            plant_id=plant_context["plant_id"],
+            user_id=auth_data.get("user_id"),
+            db=db
         )
         
         if result:
@@ -653,7 +656,7 @@ async def send_manual_ai_request(
     plant_context: dict = Depends(validate_plant_access_middleware),
     db: AsyncSession = Depends(get_plant_db_with_context)
 ) -> Any:
-    """Send manual AI request with different question types"""
+    """Send manual AI request with different question types. If session_id provided, update existing artifact."""
     try:
         ai_response = await advisor_service.send_manual_ai_request(
             request, 

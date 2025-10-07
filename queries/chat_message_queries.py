@@ -13,7 +13,7 @@ def message_serializer(message):
     """
     try:
         # Try to parse the response as JSON, otherwise return it as is
-        response_data = json.loads(message.response) if message.response else []
+        response_data = json.loads(message.response) if message.response else None
     except (json.JSONDecodeError, TypeError):
         logger.warning(f"Could not parse response as JSON for message ID {message.id}")
         response_data = message.response
@@ -21,7 +21,7 @@ def message_serializer(message):
     return {
         "id": message.id,
         "status": "success",
-        "data": response_data,  # Now returning parsed JSON data
+        "data": response_data,  # Return parsed JSON data or original response
         "timestamp": message.created_at.isoformat() if hasattr(message.created_at, 'isoformat') else str(message.created_at)
     }
 

@@ -106,7 +106,8 @@ async def update_artifact(
     title: Optional[str] = None,
     content: Optional[str] = None,
     artifact_metadata: Optional[Dict[str, Any]] = None,
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None,
+    message_id: Optional[int] = None
 ) -> Optional[Artifacts]:
     """Update an artifact"""
     try:
@@ -120,6 +121,8 @@ async def update_artifact(
             update_data["artifact_metadata"] = artifact_metadata
         if is_active is not None:
             update_data["is_active"] = is_active
+        if message_id is not None:
+            update_data["message_id"] = message_id
         
         if not update_data:
             logger.warning("No update data provided")

@@ -7,7 +7,8 @@ from schemas.schema import (
     AdvisorRequestSchema, AdvisorResponseSchema, AdvisorNameIdsRequestSchema,
     AdvisorCalcEngineResultSchema, AdvisorCalcRequestWithTargetsSchema,
     AdvisorCompleteRequestSchema, ManualAiRequestSchema, QuestionType, AiResponseSchema,
-    AdvisorSimpleRequestSchema, RecommendationCalculationEngineSchema
+    AdvisorSimpleRequestSchema, RecommendationCalculationEngineSchema,
+    ArtifactCreateSchema, ArtifactType
 )
 from services.calculation_engine_services import build_execute_recommendation_query, finish_calc_engine_request, update_pairs, build_recommendation_schema
 from services.artifact_service import ArtifactService
@@ -227,6 +228,93 @@ class AdvisorService:
             self.logger.error(f'Error getting calc engine result: {e}')
             raise e
     
+    async def get_calc_engine_result_with_session(
+        self, 
+        name_ids: List[str],
+        plant_id: str,
+        user_id: int,
+        db: AsyncSession
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get calculation engine result from name_ids, create session and artifact.
+        
+        Args:
+            name_ids: List of name IDs to analyze
+            plant_id: Plant ID for the calculation
+            user_id: User ID creating the session
+            db: Database session
+        
+        Returns:
+            Dict with session_id, artifact_id, and calc engine result data
+        """
+        try:
+            self.logger.info(f'Getting calc engine result with session for name_ids: {name_ids}')
+            
+            # Get calculation engine result
+            result = await self.get_calc_engine_result(name_ids, plant_id)
+            
+            if not result:
+                return None
+            
+            # Create new chat session
+            session_id = str(uuid.uuid4())
+            created_session = await create_chat_session(db, session_id, user_id)
+            if not created_session:
+                self.logger.error('Failed to create session')
+                return None
+            
+            self.logger.success(f'Session created: {session_id}')
+            
+            # Prepare artifact content with calc engine result
+            artifact_content = json.dumps({
+                "dependent_variables": [var.dict() for var in result.dependent_variables],
+                "independent_variables": [var.dict() for var in result.independent_variables],
+                "targets": [target.dict() for target in result.targets]
+            }, indent=2)
+            
+            # Create artifact with calculation engine data
+            artifact = await self.artifact_service.create_artifact(
+                db=db,
+                artifact_data=ArtifactCreateSchema(
+                    session_id=session_id,
+                    title="Calculation Engine Result",
+                    artifact_type=ArtifactType.ADVICE,
+                    content=artifact_content,
+                    artifact_metadata={
+                        "source": "calc_engine",
+                        "name_ids": name_ids,
+                        "plant_id": plant_id,
+                        "stage": "initial",
+                        "calc_engine_data": {
+                            "dependent_variables": [var.dict() for var in result.dependent_variables],
+                            "independent_variables": [var.dict() for var in result.independent_variables],
+                            "targets": [target.dict() for target in result.targets]
+                        }
+                    }
+                ),
+                user_id=user_id,
+                auth_data={"user_id": user_id}
+            )
+            
+            if not artifact:
+                self.logger.error('Failed to create artifact')
+                # Continue anyway, don't fail the whole request
+            
+            artifact_id = artifact.get("id") if artifact else None
+            self.logger.success(f'Artifact created with ID: {artifact_id}')
+            
+            # Return response with session_id, artifact_id, and data
+            return {
+                "session_id": session_id,
+                "artifact_id": artifact_id,
+                "dependent_variables": [var.dict() for var in result.dependent_variables],
+                "independent_variables": [var.dict() for var in result.independent_variables],
+                "targets": [target.dict() for target in result.targets]
+            }
+            
+        except Exception as e:
+            self.logger.error(f'Error getting calc engine result with session: {e}')
+            raise e
     
     async def _get_ai_response(self, context: Dict[str, Any], plant_id: str = None) -> Optional[Dict[str, Any]]:
         """Get response from AI service"""
@@ -260,7 +348,6 @@ class AdvisorService:
             self.logger.error(f'Failed to get AI response: {str(e)}')
             raise ValueError(str(e))
     
-    
     async def send_manual_ai_request(
         self, 
         manual_request: ManualAiRequestSchema,
@@ -269,7 +356,7 @@ class AdvisorService:
         auth_data: Dict[str, Any],
         plant_id: str = None
     ) -> Optional[Dict[str, Any]]:
-        """Send manual AI request with different question types"""
+        """Send manual AI request with different question types. If session_id provided, use existing session and update artifact."""
         try:
             self.logger.info('Sending manual AI request')
             
@@ -332,17 +419,29 @@ class AdvisorService:
             ai_response = await self._get_ai_response(ai_request_data, plant_id)
             execution_time = (datetime.now() - starttime).total_seconds()
             
-            # Step 3: Only create session and message if AI responds successfully
+            # Step 3: Only create/update session and message if AI responds successfully
             if ai_response:
                 try:
-                    # Create a new chat session
-                    session_id = str(uuid.uuid4())
-                    created_session = await create_chat_session(db, session_id, user_id)
-                    if not created_session:
-                        self.logger.error('Failed to create session')
-                        raise ValueError("Failed to create session")
-                    
-                    self.logger.success(f'Session created: {session_id}')
+                    # Check if session_id is provided in request
+                    if manual_request.session_id:
+                        # Use existing session
+                        session_id = manual_request.session_id
+                        self.logger.info(f'Using existing session: {session_id}')
+                        
+                        # Verify session exists and user has access
+                        existing_session = await get_chat_session(db, session_id)
+                        if not existing_session or existing_session.user_id != user_id:
+                            self.logger.error(f'Session {session_id} not found or access denied')
+                            raise ValueError("Session not found or access denied")
+                    else:
+                        # Create a new chat session
+                        session_id = str(uuid.uuid4())
+                        created_session = await create_chat_session(db, session_id, user_id)
+                        if not created_session:
+                            self.logger.error('Failed to create session')
+                            raise ValueError("Failed to create session")
+                        
+                        self.logger.success(f'Session created: {session_id}')
                     
                     # Create a dummy message in the session
                     dummy_message = f"Manual AI request: {manual_request.label.value}"
@@ -359,22 +458,61 @@ class AdvisorService:
                         query="Manual AI request - direct response from AI service"
                     )
                     
-                    # Create artifacts from AI response
+                    # Create or update artifacts from AI response
                     created_artifacts = []
                     try:
-                        for ai_item in ai_response:
-                            artifact = await self.artifact_service.create_artifact_from_ai_response(
-                                db=db,
-                                session_id=session_id,
-                                user_id=user_id,
-                                ai_response=ai_item,
-                                message_id=chat_message.get('id') if chat_message and isinstance(chat_message, dict) else None
-                            )
-                            if artifact:
-                                created_artifacts.append(artifact)
-                                self.logger.info(f"Created artifact: {artifact.get('title', 'Untitled')}")
+                        # If session_id was provided, try to update existing artifact
+                        if manual_request.session_id:
+                            # Get existing artifacts from session
+                            from queries.artifact_queries import get_artifacts_by_session
+                            existing_artifacts = await get_artifacts_by_session(db, session_id, user_id, skip=0, limit=1)
+                            
+                            if existing_artifacts and len(existing_artifacts) > 0:
+                                # Update the first artifact with AI response data in metadata
+                                existing_artifact = existing_artifacts[0]
+                                self.logger.info(f'Updating existing artifact {existing_artifact.id} with advisor_simulated_data')
+                                
+                                # Update artifact with AI answer as content and advisor_simulated_data in metadata
+                                from queries.artifact_queries import update_artifact
+                                
+                                # Extract the answer from AI response
+                                ai_answer = ai_response.get("answer", "") if isinstance(ai_response, dict) else str(ai_response)
+                                
+                                # Preserve existing metadata and add advisor_simulated_data
+                                updated_metadata = existing_artifact.artifact_metadata or {}
+                                updated_metadata.update({
+                                    "stage": "completed",
+                                    "advisor_simulated_data": ai_response
+                                })
+                                
+                                updated_artifact = await update_artifact(
+                                    db=db,
+                                    artifact_id=existing_artifact.id,
+                                    user_id=user_id,
+                                    content=ai_answer,
+                                    artifact_metadata=updated_metadata,
+                                    message_id=chat_message.get('id') if chat_message and isinstance(chat_message, dict) else existing_artifact.message_id
+                                )
+                                
+                                if updated_artifact:
+                                    created_artifacts.append(self.artifact_service._format_artifact_response(updated_artifact))
+                                    self.logger.success(f'Updated artifact {existing_artifact.id} with advisor_simulated_data')
+                        
+                        # If no artifact was updated, create new ones from AI response
+                        if not created_artifacts:
+                            for ai_item in ai_response:
+                                artifact = await self.artifact_service.create_artifact_from_ai_response(
+                                    db=db,
+                                    session_id=session_id,
+                                    user_id=user_id,
+                                    ai_response=ai_item,
+                                    message_id=chat_message.get('id') if chat_message and isinstance(chat_message, dict) else None
+                                )
+                                if artifact:
+                                    created_artifacts.append(artifact)
+                                    self.logger.info(f"Created artifact: {artifact.get('title', 'Untitled')}")
                     except Exception as artifact_error:
-                        self.logger.warning(f"Failed to create artifacts: {artifact_error}")
+                        self.logger.warning(f"Failed to create/update artifacts: {artifact_error}")
                         # Don't fail the main response if artifact creation fails
                     
                     # Prepare response with session info and artifacts

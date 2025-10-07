@@ -1,631 +1,84 @@
-{'data': {'pairs': [
-      {'relationship': {'type': 'is_affected', 'gain': 0.7944, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.op', 'current_value': 39.12, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_ll', 'current_value': 35.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_ll', 'current_value': 6.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_hl', 'current_value': 88.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_hl', 'current_value': 47.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
+{
+  "source": "calc_engine",
+  "name_ids": [
+    "c5"
+  ],
+  "plant_id": "1",
+  "stage": "completed",
+  "advisor_simulated_data": {
+    "answer": "It's not recommended(higher priority variables could get worse)/impossible to take the  c5 up to 4.0 but instead up to 1.01, \nTo make this possible, you have to change:\n                              fc004.sp from 216.0 to 220.0, \n                              fi001.pv from 150.69 to 153.32, \n                              tc002.sp from 146.81 to 146.57, \nif you do this, you have to consider that the following variables values will change accordingly: \n                                fi002.pv from 3.2 to 3.5, \n                                fc002.sp from 3.19 to 3.49, \n                                fc002.op from 39.12 to 46.28, \n                                tc002.op from 48.19 to 63.1, \n                                fi003.pv from 96.51 to 101.37, \n                                lc001.op from 59.08 to 98.0, \n                                fc004.pv from 215.82 to 223.82, \n                                fi005.pv from 54.21 to 54.6, \n                                fc004.op from 47.85 to 54.33, \n                                lc002.op from 84.95 to 85.23, \n                                ti003.pv from 102.74 to 103.0, \n                                tc002.pv from 146.94 to 146.47, \n                                rvp from 10.47 to 11.14, \n                                          HOWEVER\neven if it's not recommendend, the exact targets values can be reached without violating physical and mechanical laws. To take the targets c5 up to 4.0, \nyou would have to change:\n                              fc004.sp from 216.0 to 190.37, \n                              fi001.pv from 150.69 to 161.43, \n                              tc002.sp from 146.81 to 155.56, \nif you do this, you have to consider that the following variables values will change accordingly: \n                               fi002.pv from 3.2 to 5.48, \n                               fc002.sp from 3.19 to 5.47, \n                               fc002.op from 39.12 to 93.87, \n                               tc002.op from 48.19 to 162.25, \n                               fi003.pv from 96.51 to 89.02, \n                               lc001.op from 59.08 to -0.88, \n                               fc004.pv from 215.82 to 164.57, \n                               fi005.pv from 54.21 to 83.35, \n                               fc004.op from 47.85 to 6.34, \n                               lc002.op from 84.95 to 105.33, \n                               ti003.pv from 102.74 to 130.38, \n                               tc002.pv from 146.94 to 164.44, \n                               rvp from 10.47 to -14.38, \nand this is not recommended because some variables went outside limits that have higher priority\nthe variables that, if the targets reach the exact values, will go beyond the limits are: \n                              fc004.sp beyond the low_limit of 216.0, \n                              fc004.sp beyond the low_limit of 200.0, \n                              tc002.sp beyond the high_limit of 148.5, \n                              c5 beyond the high_limit of 1.4, \n                              fc002.op beyond the high_limit of 90.0, \n                              fc002.op beyond the high_limit of 50.0, \n                              lc001.op beyond the low_limit of 0.0, \n                              fc004.op beyond the low_limit of 20.0, \n                              lc002.op beyond the high_limit of 95.0, \n                              ti003.pv beyond the high_limit of 110.0, \n                              ti003.pv beyond the high_limit of 103.0, \n                              rvp beyond the low_limit of 5.0, \n",
+    "data": {
+      "dependent_variables": {
+        "fi002.pv": 3.5,
+        "fc002.sp": 3.49,
+        "fc002.op": 46.28,
+        "tc002.op": 63.1,
+        "fi003.pv": 101.37,
+        "lc001.op": 98.0,
+        "fc004.pv": 223.82,
+        "fi005.pv": 54.6,
+        "fc004.op": 54.33,
+        "lc002.op": 85.23,
+        "ti003.pv": 103.0,
+        "tc002.pv": 146.47,
+        "rvp": 11.14
       },
-      {'relationship': {'type': 'is_affected', 'gain': 3.9182400000000004, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.op', 'current_value': 39.12, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_ll', 'current_value': 35.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_ll', 'current_value': 6.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_hl', 'current_value': 88.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_hl', 'current_value': 47.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
+      "independent_variables": {
+        "fc004.sp": 220.0,
+        "fi001.pv": 146.81,
+        "tc002.sp": 146.57
       },
-      {'relationship': {'type': 'is_affected', 'gain': 0.60288, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.op', 'current_value': 39.12, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_ll', 'current_value': 35.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_ll', 'current_value': 6.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc002op_dcs_hl', 'current_value': 88.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc002op_apc_hl', 'current_value': 47.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.02512, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi002.pv', 'current_value': 3.2, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi002.pv_unitaryprice', 'current_value': -25.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.16326000000000002, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi002.pv', 'current_value': 3.2, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi002.pv_unitaryprice', 'current_value': -25.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.0331, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi002.pv', 'current_value': 3.2, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi002.pv_unitaryprice', 'current_value': -25.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.0331, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.sp', 'current_value': 3.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.02512, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.sp', 'current_value': 3.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.16326000000000002, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc002.sp', 'current_value': 3.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 1.655, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'tc002.op', 'current_value': 48.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 8.163, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'tc002.op', 'current_value': 48.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 1.256, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'tc002.op', 'current_value': 48.19, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.144, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi003.pv', 'current_value': 96.51, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi003.pv_unitaryprice', 'current_value': 180.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.635, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi003.pv', 'current_value': 96.51, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi003.pv_unitaryprice', 'current_value': 180.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -0.786, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi003.pv', 'current_value': 96.51, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi003.pv_unitaryprice', 'current_value': 180.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 5.08, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc001.op', 'current_value': 59.08, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc001.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_ll', 'current_value': 0.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_hl', 'current_value': 98.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 1.152, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc001.op', 'current_value': 59.08, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc001.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_ll', 'current_value': 0.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_hl', 'current_value': 98.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -6.288, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc001.op', 'current_value': 59.08, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc001.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_ll', 'current_value': 0.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc001op_dcs_hl', 'current_value': 98.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.36608, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi005.pv', 'current_value': 54.21, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi005.pv_unitaryprice', 'current_value': 130.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -0.144859, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi005.pv', 'current_value': 54.21, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi005.pv_unitaryprice', 'current_value': 130.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.7915049999999999, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fi005.pv', 'current_value': 54.21, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi005.pv_unitaryprice', 'current_value': 130.0
-          }, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -0.01356, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'c5', 'current_value': 1.07, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'c5_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_ll', 'current_value': 0.1, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_hl', 'current_value': 1.4, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.036, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'c5', 'current_value': 1.07, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'c5_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_ll', 'current_value': 0.1, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_hl', 'current_value': 1.4, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.1056, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'c5', 'current_value': 1.07, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'c5_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_ll', 'current_value': 0.1, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'c5_apc_hl', 'current_value': 1.4, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -0.1013, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc002.op', 'current_value': 84.95, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_ll', 'current_value': 10.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_hl', 'current_value': 95.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.5535, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc002.op', 'current_value': 84.95, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_ll', 'current_value': 10.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_hl', 'current_value': 95.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.256, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'lc002.op', 'current_value': 84.95, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'lc002.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_ll', 'current_value': 10.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'lc002op_dcs_hl', 'current_value': 95.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.88, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'ti003.pv', 'current_value': 102.74, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'ti003.pv_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_ll', 'current_value': 99.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_ll', 'current_value': 90.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_hl', 'current_value': 110.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_hl', 'current_value': 103.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -0.113, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'ti003.pv', 'current_value': 102.74, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'ti003.pv_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_ll', 'current_value': 99.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_ll', 'current_value': 90.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_hl', 'current_value': 110.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_hl', 'current_value': 103.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.3, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'ti003.pv', 'current_value': 102.74, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'ti003.pv_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_ll', 'current_value': 99.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_ll', 'current_value': 90.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'ti003_dcs_hl', 'current_value': 110.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'ti003_apc_hl', 'current_value': 103.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fi001.pv', 'current_value': 150.69, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable_disturbance_variable', 'unitary_price': {'unit_of_measurement': None, 'name_id': 'fi001.pv_unitaryprice', 'current_value': -100.0
-          }, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 1.0, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'tc002.pv', 'current_value': 146.94, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': -1.42, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'rvp', 'current_value': 10.47, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'rvp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'rvp_apc_ll', 'current_value': 5.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'rvp_apc_hl', 'current_value': 13.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'tc002.sp', 'current_value': 146.81, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'tc002.sp_mv_weight', 'current_value': -5.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_ll', 'current_value': 143.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_ll', 'current_value': 140.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_dcs_hl', 'current_value': 160.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'tc002sp_apc_hl', 'current_value': 148.5, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 1.0, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc004.pv', 'current_value': 215.82, 'slack_weight': None, 'mv_weight': None, 'low_limits': None, 'high_limits': None, 'variable_type': 'process_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
-      },
-      {'relationship': {'type': 'is_affected', 'gain': 0.81, 'gain_unit': None
-        }, 'from': {'unit_of_measurement': None, 'name_id': 'fc004.op', 'current_value': 47.85, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.op_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': None, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004op_apc_ll', 'current_value': 20.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004op_dcs_ll', 'current_value': 0.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004op_dcs_hl', 'current_value': 100.0, 'priority': 'high', 'source': 'dcs'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004op_apc_hl', 'current_value': 80.0, 'priority': 'medium', 'source': 'apc'
-            }
-          ], 'variable_type': 'output_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }, 'to': {'unit_of_measurement': None, 'name_id': 'fc004.sp', 'current_value': 216.0, 'slack_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_slack_weight', 'current_value': 1.0
-          }, 'mv_weight': {'unit_of_measurement': None, 'name_id': 'fc004.sp_mv_weight', 'current_value': -1.0
-          }, 'low_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_ll', 'current_value': 216.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_ll', 'current_value': 200.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'high_limits': [
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_apc_hl', 'current_value': 220.0, 'priority': 'medium', 'source': 'apc'
-            },
-            {'unit_of_measurement': None, 'name_id': 'fc004sp_dcs_hl', 'current_value': 250.0, 'priority': 'high', 'source': 'dcs'
-            }
-          ], 'variable_type': 'set_point_variable', 'unitary_price': None, 'final_value': None, 'timestamp': None
-        }
+      "targets": {
+        "c5": 1.01
       }
-    ], 'targets': [
-      {'unit_of_measurement': None, 'name_id': 'fc002.op', 'current_value': 39.12, 'target_value': 200.0, 'timestamp': '2025-01-08 12: 59'
+    },
+    "answer_type": "Answer",
+    "plot_type": null,
+    "question_type": null,
+    "rewritten_question": "what should i do to move the value of c5 from 1.07 to 4.0"
+  }
+}
+
+
+
+
+{
+  "source": "calc_engine",
+  "name_ids": [
+    "c5"
+  ],
+  "plant_id": "1",
+  "stage": "completed",
+  "advisor_simulated_data": {
+    "answer": "It's not recommended(higher priority variables could get worse)/impossible to take the  c5 up to 4.0 but instead up to 1.01, \nTo make this possible, you have to change:\n                              fc004.sp from 216.0 to 220.0, \n                              fi001.pv from 150.69 to 153.32, \n                              tc002.sp from 146.81 to 146.57, \nif you do this, you have to consider that the following variables values will change accordingly: \n                                fi002.pv from 3.2 to 3.5, \n                                fc002.sp from 3.19 to 3.49, \n                                fc002.op from 39.12 to 46.28, \n                                tc002.op from 48.19 to 63.1, \n                                fi003.pv from 96.51 to 101.37, \n                                lc001.op from 59.08 to 98.0, \n                                fc004.pv from 215.82 to 223.82, \n                                fi005.pv from 54.21 to 54.6, \n                                fc004.op from 47.85 to 54.33, \n                                lc002.op from 84.95 to 85.23, \n                                ti003.pv from 102.74 to 103.0, \n                                tc002.pv from 146.94 to 146.47, \n                                rvp from 10.47 to 11.14, \n                                          HOWEVER\neven if it's not recommendend, the exact targets values can be reached without violating physical and mechanical laws. To take the targets c5 up to 4.0, \nyou would have to change:\n                              fc004.sp from 216.0 to 190.37, \n                              fi001.pv from 150.69 to 161.43, \n                              tc002.sp from 146.81 to 155.56, \nif you do this, you have to consider that the following variables values will change accordingly: \n                               fi002.pv from 3.2 to 5.48, \n                               fc002.sp from 3.19 to 5.47, \n                               fc002.op from 39.12 to 93.87, \n                               tc002.op from 48.19 to 162.25, \n                               fi003.pv from 96.51 to 89.02, \n                               lc001.op from 59.08 to -0.88, \n                               fc004.pv from 215.82 to 164.57, \n                               fi005.pv from 54.21 to 83.35, \n                               fc004.op from 47.85 to 6.34, \n                               lc002.op from 84.95 to 105.33, \n                               ti003.pv from 102.74 to 130.38, \n                               tc002.pv from 146.94 to 164.44, \n                               rvp from 10.47 to -14.38, \nand this is not recommended because some variables went outside limits that have higher priority\nthe variables that, if the targets reach the exact values, will go beyond the limits are: \n                              fc004.sp beyond the low_limit of 216.0, \n                              fc004.sp beyond the low_limit of 200.0, \n                              tc002.sp beyond the high_limit of 148.5, \n                              c5 beyond the high_limit of 1.4, \n                              fc002.op beyond the high_limit of 90.0, \n                              fc002.op beyond the high_limit of 50.0, \n                              lc001.op beyond the low_limit of 0.0, \n                              fc004.op beyond the low_limit of 20.0, \n                              lc002.op beyond the high_limit of 95.0, \n                              ti003.pv beyond the high_limit of 110.0, \n                              ti003.pv beyond the high_limit of 103.0, \n                              rvp beyond the low_limit of 5.0, \n",
+    "data": {
+      "dependent_variables": {
+        "fi002.pv": 3.5,
+        "fc002.sp": 3.49,
+        "fc002.op": 46.28,
+        "tc002.op": 63.1,
+        "fi003.pv": 101.37,
+        "lc001.op": 98.0,
+        "fc004.pv": 223.82,
+        "fi005.pv": 54.6,
+        "fc004.op": 54.33,
+        "lc002.op": 85.23,
+        "ti003.pv": 103.0,
+        "tc002.pv": 146.47,
+        "rvp": 11.14
+      },
+      "independent_variables": {
+        "fc004.sp": 220.0,
+        "fi001.pv": 146.81,
+        "tc002.sp": 146.57
+      },
+      "targets": {
+        "c5": 1.01
       }
-    ], 'label': 'recommendations'
-  }, 'question_type': 'advice', 'plant_id': '1'
+    },
+    "answer_type": "Answer",
+    "plot_type": null,
+    "question_type": "advice",
+    "rewritten_question": "what should i do to move the value of c5 from 1.07 to 4.0"
+  }
 }

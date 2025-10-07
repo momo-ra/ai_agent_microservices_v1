@@ -100,6 +100,12 @@ def format_history_response(chat_message) -> Dict[str, Any]:
                             }
                             for tag_id, data_points in tag_groups.items()
                         ]
+                elif isinstance(parsed_response, dict):
+                    # Single AI response object: wrap in array
+                    response_data = [parsed_response]
+                else:
+                    # Other formats: keep as-is
+                    response_data = parsed_response
             except json.JSONDecodeError:
                 logger.error(f"Error decoding JSON for message {chat_message.id}")
                 response_data = []

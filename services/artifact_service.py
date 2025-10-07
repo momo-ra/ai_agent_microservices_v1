@@ -356,7 +356,8 @@ class ArtifactService:
                 title=update_data.title,
                 content=update_data.content,
                 artifact_metadata=update_data.artifact_metadata,
-                is_active=update_data.is_active
+                is_active=update_data.is_active,
+                message_id=update_data.message_id
             )
             
             if updated_artifact:
