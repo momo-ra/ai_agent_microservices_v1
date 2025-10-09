@@ -116,9 +116,6 @@ async def update_session_name(db: AsyncSession, session_id: str, chat_name: str)
 
 async def delete_session(db: AsyncSession, session_id: str):
     try:
-        from models.plant_models import Artifacts
-        from sqlalchemy import func
-        
         # First get the session to ensure it exists
         session_query = select(ChatSession).where(ChatSession.session_id == session_id)
         result = await db.execute(session_query)
@@ -128,19 +125,10 @@ async def delete_session(db: AsyncSession, session_id: str):
             logger.warning(f'Session {session_id} not found')
             return False
         
-        # Count artifacts and messages before deletion for logging
-        artifacts_count_query = select(func.count(Artifacts.id)).where(Artifacts.session_id == session_id)
-        artifacts_result = await db.execute(artifacts_count_query)
-        artifacts_count = artifacts_result.scalar() or 0
-        
-        messages_count_query = select(func.count(ChatMessage.id)).where(ChatMessage.session_id == session_id)
-        messages_result = await db.execute(messages_count_query)
-        messages_count = messages_result.scalar() or 0
-        
         # Use SQLAlchemy ORM delete which respects cascade relationships
         await db.delete(session)
         await db.commit()
-        logger.info(f'Session {session_id} and all associated {messages_count} messages and {artifacts_count} artifacts deleted successfully')
+        logger.info(f'Session {session_id} and all associated messages and artifacts deleted successfully')
         return True
     except Exception as e:
         logger.error(f'Error deleting session: {e}')
