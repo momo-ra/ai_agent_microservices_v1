@@ -21,7 +21,7 @@ from services.artifact_service import ArtifactService
 
 logger = setup_logger(__name__)
 
-load_dotenv('.env', override=True)
+load_dotenv('./../.env', override=True)
 
 AI_AGENT_URL = "http://38.128.233.128:8000/ai-agent/chat"
 
