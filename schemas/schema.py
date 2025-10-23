@@ -70,6 +70,19 @@ class TsQuerySchema(BaseModel):
     grouping_function: Optional[GroupingFunction] = None
     plot_type: Optional[PlotType] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_grouping_function(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            grouping_function = values.get("grouping_function")
+            if isinstance(grouping_function, str):
+                normalized = grouping_function.strip().upper()
+                if normalized in {"", "NONE", "NULL"}:
+                    values["grouping_function"] = None
+                else:
+                    values["grouping_function"] = normalized
+        return values
+
 
 # be aware that the ai responses with List of this schema.
 class AiResponseSchema(BaseModel):
